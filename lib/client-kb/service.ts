@@ -64,7 +64,7 @@ export async function createClient(
   } catch (checkError) {
     // If check fails, continue with creation attempt
     // The actual create will handle any real errors
-    console.error('Error checking for existing client:', checkError);
+    logger.error('Error checking for existing client', checkError);
   }
 
   // Generate client ID
@@ -72,7 +72,7 @@ export async function createClient(
   try {
     clientId = await generateShortId('client');
   } catch (idError) {
-    console.error('Error generating client ID:', idError);
+    logger.error('Error generating client ID', idError);
     return {
       error: {
         code: 'INTERNAL_ERROR',
@@ -114,19 +114,19 @@ export async function createClient(
       },
     };
   } catch (error) {
-    console.error('Error creating client:', error);
+    logger.error('Error creating client', error);
     
     // Handle Prisma errors properly
     if (error instanceof PrismaClientKnownRequestError) {
       // P2002 = Unique constraint violation (e.g., duplicate ID)
       if (error.code === 'P2002') {
-        console.warn('Duplicate ID detected, syncing counter and retrying...');
+        logger.warn('Duplicate ID detected, syncing counter and retrying...');
         // Sync counter with existing data to avoid duplicate IDs
         try {
           const { syncCounterWithExistingData } = await import('../db/id-generator');
           await syncCounterWithExistingData('client');
         } catch (syncError) {
-          console.error('Error syncing counter:', syncError);
+          logger.error('Error syncing counter', syncError);
         }
         
         // Try to regenerate ID and retry once
@@ -159,7 +159,7 @@ export async function createClient(
             },
           };
         } catch (retryError) {
-          console.error('Error on retry:', retryError);
+          logger.error('Error on retry', retryError);
           // If retry also fails, return error
           return {
             error: {

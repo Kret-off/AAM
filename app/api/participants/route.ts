@@ -4,13 +4,14 @@
  * POST /api/participants - Create participant
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getParticipants, createParticipant } from '@/lib/directory/service';
 import { ParticipantsQueryParams, ParticipantType } from '@/lib/directory/types';
 import { CreateParticipantRequest } from '@/lib/directory/dto';
 import { getTokenFromRequest, verifyToken } from '@/lib/auth/jwt';
 import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from '@/lib/auth/constants';
 import { prisma } from '@/lib/prisma';
+import { createSuccessResponse, createCreatedResponse, createErrorResponse, CommonErrors } from '@/lib/api/response-utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -40,42 +41,24 @@ export async function GET(request: NextRequest) {
     if ('error' in result) {
       const statusCode =
         result.error.code === 'INVALID_PAGINATION_PARAMS' ? 400 : 500;
-      return NextResponse.json(
-        {
-          error: {
-            code: result.error.code,
-            message: result.error.message,
-            details: result.error.details,
-          },
-        },
-        { status: statusCode }
+      return createErrorResponse(
+        result.error.code,
+        result.error.message,
+        statusCode,
+        result.error.details
       );
     }
 
     // Return success response
-    return NextResponse.json(
-      {
-        data: {
-          items: result.data.items,
-          total: result.data.total,
-          page: result.data.page,
-          pageSize: result.data.pageSize,
-          totalPages: result.data.totalPages,
-        },
-      },
-      { status: 200 }
-    );
+    return createSuccessResponse({
+      items: result.data.items,
+      total: result.data.total,
+      page: result.data.page,
+      pageSize: result.data.pageSize,
+      totalPages: result.data.totalPages,
+    });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -86,29 +69,13 @@ export async function POST(request: NextRequest) {
     const token = getTokenFromRequest(cookieHeader);
 
     if (!token) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.UNAUTHORIZED,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED]);
     }
 
     // Verify token
     const payload = verifyToken(token);
     if (!payload) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.INVALID_SESSION,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION]);
     }
 
     // Get user from database
@@ -121,31 +88,24 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_NOT_FOUND,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
-          },
-        },
-        { status: 404 }
+      return createErrorResponse(
+        AUTH_ERROR_CODES.USER_NOT_FOUND,
+        AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
+        404
       );
     }
 
     if (!user.isActive) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_INACTIVE,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE],
-          },
-        },
-        { status: 403 }
-      );
+      return CommonErrors.forbidden(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE]);
     }
 
     // Parse request body
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (error) {
+      return CommonErrors.badRequest('Invalid JSON in request body');
+    }
     const createRequest: CreateParticipantRequest = {
       type: body.type,
       fullName: body.fullName,
@@ -157,15 +117,7 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!createRequest.type || !createRequest.fullName) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: 'type and fullName are required',
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest('type and fullName are required');
     }
 
     // Call service (validation is done inside createParticipant)
@@ -175,51 +127,20 @@ export async function POST(request: NextRequest) {
     if ('error' in result) {
       const statusCode =
         result.error.code === 'PARTICIPANT_ALREADY_EXISTS' ? 409 : 400;
-      return NextResponse.json(
-        {
-          error: {
-            code: result.error.code,
-            message: result.error.message,
-            details: result.error.details,
-          },
-        },
-        { status: statusCode }
+      return createErrorResponse(
+        result.error.code,
+        result.error.message,
+        statusCode,
+        result.error.details
       );
     }
 
     // Return success response
-    return NextResponse.json(
-      {
-        data: {
-          participant: result.data,
-        },
-      },
-      { status: 201 }
-    );
+    return createCreatedResponse({
+      participant: result.data,
+    });
   } catch (error) {
-    // Handle JSON parse errors
-    if (error instanceof SyntaxError || (error instanceof Error && error.message.includes('JSON'))) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: 'Invalid JSON in request body',
-          },
-        },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 

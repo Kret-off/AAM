@@ -5,12 +5,14 @@
  * DELETE /api/meetings/[meetingId] - Delete meeting
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getMeetingDetail } from '@/lib/meeting/service';
 import { getTokenFromRequest, verifyToken } from '@/lib/auth/jwt';
 import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from '@/lib/auth/constants';
 import { prisma } from '@/lib/prisma';
 import { validateMeetingId } from '@/lib/meeting/validation';
+import { createSuccessResponse, createErrorResponse, CommonErrors } from '@/lib/api/response-utils';
+import { logger } from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
@@ -22,15 +24,7 @@ export async function GET(
     // Validate meeting ID format
     const idValidation = validateMeetingId(meetingId);
     if (!idValidation.valid) {
-      return NextResponse.json(
-        {
-          error: {
-            code: idValidation.error!.code,
-            message: idValidation.error!.message,
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest(idValidation.error!.message, { code: idValidation.error!.code });
     }
 
     // Get token from cookies
@@ -38,29 +32,13 @@ export async function GET(
     const token = getTokenFromRequest(cookieHeader);
 
     if (!token) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.UNAUTHORIZED,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED]);
     }
 
     // Verify token
     const payload = verifyToken(token);
     if (!payload) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.INVALID_SESSION,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION]);
     }
 
     // Get user from database to get role
@@ -74,27 +52,15 @@ export async function GET(
     });
 
     if (!user) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_NOT_FOUND,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
-          },
-        },
-        { status: 404 }
+      return createErrorResponse(
+        AUTH_ERROR_CODES.USER_NOT_FOUND,
+        AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
+        404
       );
     }
 
     if (!user.isActive) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_INACTIVE,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE],
-          },
-        },
-        { status: 403 }
-      );
+      return CommonErrors.forbidden(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE]);
     }
 
     // Call service (RBAC check is done inside getMeetingDetail)
@@ -102,7 +68,7 @@ export async function GET(
 
     // Log response for debugging
     if ('data' in result) {
-      console.log('[API] Meeting detail response:', {
+      logger.info('[API] Meeting detail response:', {
         meetingId,
         status: result.data.status,
         hasTranscript: result.data.hasTranscript,
@@ -113,7 +79,7 @@ export async function GET(
     // Handle error response
     if ('error' in result) {
       // Log error for debugging
-      console.error('Error fetching meeting details:', {
+      logger.error('Error fetching meeting details:', {
         meetingId,
         userId: user.id,
         errorCode: result.error.code,
@@ -127,36 +93,18 @@ export async function GET(
           : result.error.code === 'UNAUTHORIZED_ACCESS'
           ? 403
           : 500;
-      return NextResponse.json(
-        {
-          error: {
-            code: result.error.code,
-            message: result.error.message,
-            details: result.error.details,
-          },
-        },
-        { status: statusCode }
+      return createErrorResponse(
+        result.error.code,
+        result.error.message,
+        statusCode,
+        result.error.details
       );
     }
 
     // Return success response
-    return NextResponse.json(
-      {
-        data: result.data,
-      },
-      { status: 200 }
-    );
+    return createSuccessResponse(result.data);
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -170,37 +118,16 @@ export async function PATCH(
     // Validate meeting ID format
     const idValidation = validateMeetingId(meetingId);
     if (!idValidation.valid) {
-      return NextResponse.json(
-        {
-          error: {
-            code: idValidation.error!.code,
-            message: idValidation.error!.message,
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest(idValidation.error!.message, { code: idValidation.error!.code });
     }
     // TODO: Implement update meeting logic
-    return NextResponse.json(
-      {
-        error: {
-          code: 'NOT_IMPLEMENTED',
-          message: 'Update meeting endpoint not yet implemented',
-        },
-      },
-      { status: 501 }
+    return createErrorResponse(
+      'NOT_IMPLEMENTED',
+      'Update meeting endpoint not yet implemented',
+      501
     );
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -214,37 +141,15 @@ export async function DELETE(
     // Validate meeting ID format
     const idValidation = validateMeetingId(meetingId);
     if (!idValidation.valid) {
-      return NextResponse.json(
-        {
-          error: {
-            code: idValidation.error!.code,
-            message: idValidation.error!.message,
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest(idValidation.error!.message, { code: idValidation.error!.code });
     }
     // TODO: Implement delete meeting logic
-    return NextResponse.json(
-      {
-        error: {
-          code: 'NOT_IMPLEMENTED',
-          message: 'Delete meeting endpoint not yet implemented',
-        },
-      },
-      { status: 501 }
+    return createErrorResponse(
+      'NOT_IMPLEMENTED',
+      'Delete meeting endpoint not yet implemented',
+      501
     );
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
-

@@ -18,3 +18,7 @@ export {
   type LoggerConfig,
 } from './config';
 
+// Export default logger instance for convenience
+import { createModuleLogger } from './logger';
+export const logger = createModuleLogger('APP');
+

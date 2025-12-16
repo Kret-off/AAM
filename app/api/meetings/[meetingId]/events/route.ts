@@ -34,6 +34,7 @@ import { validateMeetingId } from '@/lib/meeting/validation';
 import { checkMeetingAccess } from '@/lib/meeting/rbac';
 import { getRedisConnection } from '@/lib/queue';
 import Redis from 'ioredis';
+import { logger } from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
@@ -176,9 +177,9 @@ export async function GET(
             await subscriber.unsubscribe(channel);
             subscriber.quit();
             controller.close();
-            console.log(`[SSE] Cleaned up connection for meeting ${meetingId}`);
+            logger.info(`[SSE] Cleaned up connection for meeting ${meetingId}`);
           } catch (error) {
-            console.error(`[SSE] Error during cleanup for meeting ${meetingId}:`, error);
+            logger.error(`[SSE] Error during cleanup for meeting ${meetingId}:`, error);
           }
         };
 
@@ -201,13 +202,13 @@ export async function GET(
                 throw enqueueError;
               }
             } catch (error) {
-              console.error('[SSE] Error parsing event message:', error);
+              logger.error('[SSE] Error parsing event message:', error);
             }
           }
         });
 
         subscriber.on('error', (error) => {
-          console.error('[SSE] Redis subscriber error:', error);
+          logger.error('[SSE] Redis subscriber error:', error);
           if (!isClosed) {
             const errorMessage = `event: error\ndata: ${JSON.stringify({ message: 'Connection error' })}\n\n`;
             controller.enqueue(encoder.encode(errorMessage));
@@ -216,9 +217,9 @@ export async function GET(
 
         try {
           await subscriber.subscribe(channel);
-          console.log(`[SSE] Subscribed to channel: ${channel} for meeting ${meetingId}`);
+          logger.info(`[SSE] Subscribed to channel: ${channel} for meeting ${meetingId}`);
         } catch (error) {
-          console.error(`[SSE] Failed to subscribe to channel ${channel}:`, error);
+          logger.error(`[SSE] Failed to subscribe to channel ${channel}:`, error);
           await cleanup();
           return;
         }
@@ -226,14 +227,14 @@ export async function GET(
         // Handle client disconnect
         if (request.signal) {
           request.signal.addEventListener('abort', () => {
-            console.log(`[SSE] Client disconnected from meeting ${meetingId}`);
+            logger.info(`[SSE] Client disconnected from meeting ${meetingId}`);
             cleanup();
           });
         }
 
         // Also handle stream cancellation
         const cancelHandler = () => {
-          console.log(`[SSE] Stream cancelled for meeting ${meetingId}`);
+          logger.info(`[SSE] Stream cancelled for meeting ${meetingId}`);
           cleanup();
         };
 
@@ -241,7 +242,7 @@ export async function GET(
         return cancelHandler;
       },
       cancel() {
-        console.log(`[SSE] Stream cancelled for meeting ${meetingId}`);
+        logger.info(`[SSE] Stream cancelled for meeting ${meetingId}`);
       },
     });
 
@@ -255,7 +256,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error('[SSE] Error in events route:', error);
+    logger.error('[SSE] Error in events route:', error);
     return new Response(
       JSON.stringify({
         error: {

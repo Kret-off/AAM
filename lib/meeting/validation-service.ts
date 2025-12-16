@@ -12,6 +12,9 @@ import { prisma } from '../prisma';
 import { updateContextSummary } from '@/lib/client-kb/context-summary';
 import { ContextSummaryInput } from '@/lib/client-kb/types';
 import { generateShortId } from '../db/id-generator';
+import { createModuleLogger } from '../logger';
+
+const logger = createModuleLogger('Meeting:ValidationService');
 
 export interface ValidationServiceError {
   code: string;
@@ -204,7 +207,7 @@ export async function validateMeeting(
 
         // Call asynchronously (don't block validation response)
         updateContextSummary(meetingWithArtifacts.clientId, contextInput).catch((error) => {
-          console.error('Failed to update context summary:', error);
+          logger.error('Failed to update context summary', error);
           // Log error but don't fail validation
         });
       }

@@ -4,11 +4,12 @@
  */
 
 import { NextResponse } from 'next/server';
+import { ApiError as ApiErrorClass } from '../errors/api-error';
 
 /**
  * Error response structure
  */
-export interface ApiError {
+export interface ApiErrorResponse {
   error: {
     code: string;
     message: string;
@@ -37,7 +38,7 @@ export function createErrorResponse(
   message: string,
   status: number = 500,
   details?: Record<string, unknown>
-): NextResponse<ApiError> {
+): NextResponse<ApiErrorResponse> {
   return NextResponse.json(
     {
       error: {
@@ -47,6 +48,38 @@ export function createErrorResponse(
       },
     },
     { status }
+  );
+}
+
+/**
+ * Create error response from error object
+ * 
+ * @param error - Error object
+ * @returns NextResponse with error
+ */
+export function createErrorResponseFromError(error: unknown): NextResponse<ApiErrorResponse> {
+  if (error instanceof ApiErrorClass) {
+    return createErrorResponse(
+      error.code,
+      error.message,
+      error.statusCode,
+      error.details
+    );
+  }
+
+  if (error instanceof Error) {
+    return createErrorResponse(
+      'INTERNAL_ERROR',
+      error.message,
+      500,
+      { originalError: error.message }
+    );
+  }
+
+  return createErrorResponse(
+    'INTERNAL_ERROR',
+    'Unknown error occurred',
+    500
   );
 }
 

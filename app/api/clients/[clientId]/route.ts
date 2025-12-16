@@ -4,7 +4,7 @@
  * PATCH /api/clients/[clientId] - Update client
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getClientDetail, updateClient } from '@/lib/client-kb/service';
 import { getMeetings } from '@/lib/meeting/service';
 import { getTokenFromRequest, verifyToken } from '@/lib/auth/jwt';
@@ -12,6 +12,7 @@ import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from '@/lib/auth/constants';
 import { prisma } from '@/lib/prisma';
 import { validateClientId } from '@/lib/client-kb/validation';
 import { UpdateClientRequest } from '@/lib/client-kb/dto';
+import { createSuccessResponse, createErrorResponse, CommonErrors } from '@/lib/api/response-utils';
 
 export async function GET(
   request: NextRequest,
@@ -23,44 +24,20 @@ export async function GET(
     // Validate client ID format
     const idValidation = validateClientId(clientId);
     if (!idValidation.valid) {
-      return NextResponse.json(
-        {
-          error: {
-            code: idValidation.error!.code,
-            message: idValidation.error!.message,
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest(idValidation.error!.message, { code: idValidation.error!.code });
     }
     // Get token from cookies
     const cookieHeader = request.headers.get('cookie');
     const token = getTokenFromRequest(cookieHeader);
 
     if (!token) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.UNAUTHORIZED,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED]);
     }
 
     // Verify token
     const payload = verifyToken(token);
     if (!payload) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.INVALID_SESSION,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION]);
     }
 
     // Get user from database to verify active status
@@ -74,27 +51,15 @@ export async function GET(
     });
 
     if (!user) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_NOT_FOUND,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
-          },
-        },
-        { status: 404 }
+      return createErrorResponse(
+        AUTH_ERROR_CODES.USER_NOT_FOUND,
+        AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
+        404
       );
     }
 
     if (!user.isActive) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_INACTIVE,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE],
-          },
-        },
-        { status: 403 }
-      );
+      return CommonErrors.forbidden(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE]);
     }
 
     // Call service to get client detail with ownership check
@@ -106,15 +71,11 @@ export async function GET(
         result.error.code === 'CLIENT_NOT_FOUND' ? 404 :
         result.error.code === 'INVALID_CLIENT_ID' ? 400 :
         result.error.code === 'UNAUTHORIZED_ACCESS' ? 403 : 500;
-      return NextResponse.json(
-        {
-          error: {
-            code: result.error.code,
-            message: result.error.message,
-            details: result.error.details,
-          },
-        },
-        { status: statusCode }
+      return createErrorResponse(
+        result.error.code,
+        result.error.message,
+        statusCode,
+        result.error.details
       );
     }
 
@@ -140,23 +101,9 @@ export async function GET(
     }
 
     // Return success response
-    return NextResponse.json(
-      {
-        data: clientData,
-      },
-      { status: 200 }
-    );
+    return createSuccessResponse(clientData);
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -170,15 +117,7 @@ export async function PATCH(
     // Validate client ID format
     const idValidation = validateClientId(clientId);
     if (!idValidation.valid) {
-      return NextResponse.json(
-        {
-          error: {
-            code: idValidation.error!.code,
-            message: idValidation.error!.message,
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest(idValidation.error!.message, { code: idValidation.error!.code });
     }
 
     // Get token from cookies
@@ -186,29 +125,13 @@ export async function PATCH(
     const token = getTokenFromRequest(cookieHeader);
 
     if (!token) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.UNAUTHORIZED,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED]);
     }
 
     // Verify token
     const payload = verifyToken(token);
     if (!payload) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.INVALID_SESSION,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION]);
     }
 
     // Get user from database to verify active status
@@ -222,27 +145,15 @@ export async function PATCH(
     });
 
     if (!user) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_NOT_FOUND,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
-          },
-        },
-        { status: 404 }
+      return createErrorResponse(
+        AUTH_ERROR_CODES.USER_NOT_FOUND,
+        AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
+        404
       );
     }
 
     if (!user.isActive) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_INACTIVE,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE],
-          },
-        },
-        { status: 403 }
-      );
+      return CommonErrors.forbidden(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE]);
     }
 
     // Parse request body
@@ -250,28 +161,12 @@ export async function PATCH(
     try {
       updateData = await request.json();
     } catch (parseError) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: 'Invalid JSON in request body',
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest('Invalid JSON in request body');
     }
 
     // Validate that at least one field is provided
     if (updateData.name === undefined && updateData.contextSummary === undefined) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: 'At least one field (name or contextSummary) must be provided',
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest('At least one field (name or contextSummary) must be provided');
     }
 
     // Call service to update client
@@ -283,36 +178,18 @@ export async function PATCH(
         result.error.code === 'CLIENT_NOT_FOUND' ? 404 :
         result.error.code === 'INVALID_CLIENT_ID' ? 400 :
         result.error.code === 'UNAUTHORIZED_ACCESS' ? 403 : 500;
-      return NextResponse.json(
-        {
-          error: {
-            code: result.error.code,
-            message: result.error.message,
-            details: result.error.details,
-          },
-        },
-        { status: statusCode }
+      return createErrorResponse(
+        result.error.code,
+        result.error.message,
+        statusCode,
+        result.error.details
       );
     }
 
     // Return success response
-    return NextResponse.json(
-      {
-        data: result.data,
-      },
-      { status: 200 }
-    );
+    return createSuccessResponse(result.data);
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 

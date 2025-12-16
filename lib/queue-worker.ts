@@ -35,15 +35,15 @@ export function getProcessingWorker(): Worker {
 
     // Error handling
     processingWorker.on('failed', (job, err) => {
-      console.error(`Job ${job?.id} failed:`, err);
+      logger.error(`Job ${job?.id} failed`, err);
     });
 
     processingWorker.on('completed', (job) => {
-      console.log(`Job ${job.id} completed successfully`);
+      logger.info(`Job ${job.id} completed successfully`);
     });
 
     processingWorker.on('error', (err) => {
-      console.error('Worker error:', err);
+      logger.error('Worker error', err);
     });
   }
 

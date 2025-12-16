@@ -16,6 +16,9 @@ import {
 import { OpenAIAdapterError, OpenAIResponseMetadata } from './types';
 import { validateLLMResponse, extractJSONFromResponse } from './validation';
 import { saveLLMInteraction } from '../llm-interaction';
+import { createModuleLogger } from '../logger';
+
+const logger = createModuleLogger('OpenAI');
 
 let openaiClient: OpenAI | undefined;
 
@@ -284,7 +287,7 @@ async function callOpenAI(
           },
         }).catch((saveError) => {
           // Log but don't throw
-          console.error(`[OpenAI] Failed to save failed interaction:`, saveError);
+          logger.error('Failed to save failed interaction', saveError);
         });
       }
 
@@ -537,7 +540,7 @@ export async function processTranscript(
                 respondedAt: new Date(),
                 processedAt: new Date(),
               }).catch((error) => {
-                console.error(`[OpenAI] Failed to save final interaction:`, error);
+                logger.error('Failed to save final interaction', error);
               });
             }
 
@@ -591,7 +594,7 @@ export async function processTranscript(
         respondedAt: new Date(),
         processedAt: new Date(),
       }).catch((error) => {
-        console.error(`[OpenAI] Failed to save final interaction:`, error);
+        logger.error('Failed to save final interaction', error);
       });
     }
 

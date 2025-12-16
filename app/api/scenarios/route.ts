@@ -4,13 +4,14 @@
  * POST /api/scenarios - Create scenario (Admin only)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getScenarios, createScenario } from '@/lib/scenario/service';
 import { ScenariosQueryParams } from '@/lib/scenario/types';
 import { CreateScenarioRequest } from '@/lib/scenario/dto';
 import { getTokenFromRequest, verifyToken } from '@/lib/auth/jwt';
 import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from '@/lib/auth/constants';
 import { prisma } from '@/lib/prisma';
+import { createSuccessResponse, createCreatedResponse, createErrorResponse, CommonErrors } from '@/lib/api/response-utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,29 +20,13 @@ export async function GET(request: NextRequest) {
     const token = getTokenFromRequest(cookieHeader);
 
     if (!token) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.UNAUTHORIZED,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED]);
     }
 
     // Verify token
     const payload = verifyToken(token);
     if (!payload) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.INVALID_SESSION,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION]);
     }
 
     // Get user from database to get role and available meeting types
@@ -60,27 +45,15 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_NOT_FOUND,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
-          },
-        },
-        { status: 404 }
+      return createErrorResponse(
+        AUTH_ERROR_CODES.USER_NOT_FOUND,
+        AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
+        404
       );
     }
 
     if (!user.isActive) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_INACTIVE,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE],
-          },
-        },
-        { status: 403 }
-      );
+      return CommonErrors.forbidden(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE]);
     }
 
     // Extract query parameters
@@ -100,31 +73,18 @@ export async function GET(request: NextRequest) {
 
       // If user has no available meeting types, return empty result
       if (availableMeetingTypeIds.length === 0) {
-        return NextResponse.json(
-          {
-            data: {
-              items: [],
-              total: 0,
-              page: 1,
-              pageSize: pageSizeParam ? parseInt(pageSizeParam, 10) : 10,
-              totalPages: 0,
-            },
-          },
-          { status: 200 }
-        );
+        return createSuccessResponse({
+          items: [],
+          total: 0,
+          page: 1,
+          pageSize: pageSizeParam ? parseInt(pageSizeParam, 10) : 10,
+          totalPages: 0,
+        });
       }
 
       // If meetingTypeId is specified, verify user has access to it
       if (meetingTypeIdParam && !availableMeetingTypeIds.includes(meetingTypeIdParam)) {
-        return NextResponse.json(
-          {
-            error: {
-              code: 'UNAUTHORIZED_ACCESS',
-              message: 'Access denied to this meeting type',
-            },
-          },
-          { status: 403 }
-        );
+        return CommonErrors.forbidden('Access denied to this meeting type');
       }
     }
 
@@ -147,15 +107,11 @@ export async function GET(request: NextRequest) {
     if ('error' in result) {
       const statusCode =
         result.error.code === 'INVALID_PAGINATION_PARAMS' ? 400 : 500;
-      return NextResponse.json(
-        {
-          error: {
-            code: result.error.code,
-            message: result.error.message,
-            details: result.error.details,
-          },
-        },
-        { status: statusCode }
+      return createErrorResponse(
+        result.error.code,
+        result.error.message,
+        statusCode,
+        result.error.details
       );
     }
 
@@ -168,31 +124,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Return success response
-    return NextResponse.json(
-      {
-        data: {
-          items: filteredItems,
-          total: user.role !== 'ADMIN' ? filteredItems.length : result.data.total,
-          page: result.data.page,
-          pageSize: result.data.pageSize,
-          totalPages: user.role !== 'ADMIN' 
-            ? Math.ceil(filteredItems.length / result.data.pageSize)
-            : result.data.totalPages,
-        },
-      },
-      { status: 200 }
-    );
+    return createSuccessResponse({
+      items: filteredItems,
+      total: user.role !== 'ADMIN' ? filteredItems.length : result.data.total,
+      page: result.data.page,
+      pageSize: result.data.pageSize,
+      totalPages: user.role !== 'ADMIN' 
+        ? Math.ceil(filteredItems.length / result.data.pageSize)
+        : result.data.totalPages,
+    });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -203,29 +145,13 @@ export async function POST(request: NextRequest) {
     const token = getTokenFromRequest(cookieHeader);
 
     if (!token) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.UNAUTHORIZED,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED]);
     }
 
     // Verify token
     const payload = verifyToken(token);
     if (!payload) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.INVALID_SESSION,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION]);
     }
 
     // Get user from database to get role
@@ -239,44 +165,30 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_NOT_FOUND,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
-          },
-        },
-        { status: 404 }
+      return createErrorResponse(
+        AUTH_ERROR_CODES.USER_NOT_FOUND,
+        AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
+        404
       );
     }
 
     if (!user.isActive) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_INACTIVE,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE],
-          },
-        },
-        { status: 403 }
-      );
+      return CommonErrors.forbidden(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE]);
     }
 
     // Check admin access
     if (user.role !== 'ADMIN') {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'UNAUTHORIZED_ACCESS',
-            message: 'Admin access required',
-          },
-        },
-        { status: 403 }
-      );
+      return CommonErrors.forbidden('Admin access required');
     }
 
     // Parse request body
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (error) {
+      return CommonErrors.badRequest('Invalid JSON in request body');
+    }
+
     const createRequest: CreateScenarioRequest = {
       meetingTypeId: body.meetingTypeId,
       name: body.name,
@@ -289,15 +201,7 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     if (!createRequest.meetingTypeId || !createRequest.name || !createRequest.systemPrompt || 
         !createRequest.outputSchema || !createRequest.artifactsConfig) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: 'meetingTypeId, name, systemPrompt, outputSchema, and artifactsConfig are required',
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest('meetingTypeId, name, systemPrompt, outputSchema, and artifactsConfig are required');
     }
 
     // Call service (validation is done inside createScenario)
@@ -311,51 +215,20 @@ export async function POST(request: NextRequest) {
           : result.error.code === 'UNAUTHORIZED_ACCESS'
           ? 403
           : 400;
-      return NextResponse.json(
-        {
-          error: {
-            code: result.error.code,
-            message: result.error.message,
-            details: result.error.details,
-          },
-        },
-        { status: statusCode }
+      return createErrorResponse(
+        result.error.code,
+        result.error.message,
+        statusCode,
+        result.error.details
       );
     }
 
     // Return success response
-    return NextResponse.json(
-      {
-        data: {
-          scenario: result.data,
-        },
-      },
-      { status: 201 }
-    );
+    return createCreatedResponse({
+      scenario: result.data,
+    });
   } catch (error) {
-    // Handle JSON parse errors
-    if (error instanceof SyntaxError || (error instanceof Error && error.message.includes('JSON'))) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: 'Invalid JSON in request body',
-          },
-        },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 

@@ -4,13 +4,14 @@
  * POST /api/users - Create user
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getTokenFromRequest, verifyToken } from '@/lib/auth/jwt';
 import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from '@/lib/auth/constants';
 import { validateEmail, validatePassword } from '@/lib/auth/config';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { UserRole } from '@prisma/client';
+import { createSuccessResponse, createCreatedResponse, createErrorResponse, CommonErrors } from '@/lib/api/response-utils';
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -22,29 +23,13 @@ export async function GET(request: NextRequest) {
     const token = getTokenFromRequest(cookieHeader);
 
     if (!token) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.UNAUTHORIZED,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED]);
     }
 
     // Verify token
     const payload = verifyToken(token);
     if (!payload) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.INVALID_SESSION,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION]);
     }
 
     // Get user from database to get role
@@ -58,40 +43,20 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_NOT_FOUND,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
-          },
-        },
-        { status: 404 }
+      return createErrorResponse(
+        AUTH_ERROR_CODES.USER_NOT_FOUND,
+        AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
+        404
       );
     }
 
     if (!user.isActive) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_INACTIVE,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE],
-          },
-        },
-        { status: 403 }
-      );
+      return CommonErrors.forbidden(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE]);
     }
 
     // Check admin access
     if (user.role !== 'ADMIN') {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'UNAUTHORIZED_ACCESS',
-            message: 'Admin access required',
-          },
-        },
-        { status: 403 }
-      );
+      return CommonErrors.forbidden('Admin access required');
     }
 
     // Extract query parameters
@@ -104,27 +69,11 @@ export async function GET(request: NextRequest) {
     const pageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : DEFAULT_PAGE_SIZE;
 
     if (isNaN(page) || page < 1) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_PAGINATION_PARAMS',
-            message: 'Page must be a positive integer',
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest('Page must be a positive integer', { code: 'INVALID_PAGINATION_PARAMS' });
     }
 
     if (isNaN(pageSize) || pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_PAGINATION_PARAMS',
-            message: `Page size must be between 1 and ${MAX_PAGE_SIZE}`,
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest(`Page size must be between 1 and ${MAX_PAGE_SIZE}`, { code: 'INVALID_PAGINATION_PARAMS' });
     }
 
     // Calculate skip and take
@@ -155,29 +104,15 @@ export async function GET(request: NextRequest) {
     const totalPages = Math.ceil(total / pageSize);
 
     // Return success response
-    return NextResponse.json(
-      {
-        data: {
-          items: users,
-          total,
-          page,
-          pageSize,
-          totalPages,
-        },
-      },
-      { status: 200 }
-    );
+    return createSuccessResponse({
+      items: users,
+      total,
+      page,
+      pageSize,
+      totalPages,
+    });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -188,29 +123,13 @@ export async function POST(request: NextRequest) {
     const token = getTokenFromRequest(cookieHeader);
 
     if (!token) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.UNAUTHORIZED,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED]);
     }
 
     // Verify token
     const payload = verifyToken(token);
     if (!payload) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.INVALID_SESSION,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION]);
     }
 
     // Get user from database to get role
@@ -224,40 +143,20 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_NOT_FOUND,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
-          },
-        },
-        { status: 404 }
+      return createErrorResponse(
+        AUTH_ERROR_CODES.USER_NOT_FOUND,
+        AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
+        404
       );
     }
 
     if (!user.isActive) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_INACTIVE,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE],
-          },
-        },
-        { status: 403 }
-      );
+      return CommonErrors.forbidden(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE]);
     }
 
     // Check admin access
     if (user.role !== 'ADMIN') {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'UNAUTHORIZED_ACCESS',
-            message: 'Admin access required',
-          },
-        },
-        { status: 403 }
-      );
+      return CommonErrors.forbidden('Admin access required');
     }
 
     // Parse request body
@@ -266,57 +165,31 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!email || !password || !name) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Email, password, and name are required',
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest('Email, password, and name are required', { code: 'VALIDATION_ERROR' });
     }
 
     // Validate email format
     const emailValidation = validateEmail(email);
     if (!emailValidation.valid) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.INVALID_EMAIL,
-            message: emailValidation.error || AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_EMAIL],
-          },
-        },
-        { status: 400 }
+      return CommonErrors.badRequest(
+        emailValidation.error || AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_EMAIL],
+        { code: AUTH_ERROR_CODES.INVALID_EMAIL }
       );
     }
 
     // Validate password
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.valid) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: passwordValidation.errors.join('; '),
-          },
-        },
-        { status: 400 }
+      return CommonErrors.badRequest(
+        passwordValidation.errors.join('; '),
+        { code: 'VALIDATION_ERROR' }
       );
     }
 
     // Validate role
     const userRole = role === 'ADMIN' ? UserRole.ADMIN : UserRole.USER;
     if (role && role !== 'USER' && role !== 'ADMIN') {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Role must be either USER or ADMIN',
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest('Role must be either USER or ADMIN', { code: 'VALIDATION_ERROR' });
     }
 
     // Check if email already exists
@@ -325,15 +198,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingUser) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'User with this email already exists',
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest('User with this email already exists', { code: 'VALIDATION_ERROR' });
     }
 
     // Hash password
@@ -364,38 +229,16 @@ export async function POST(request: NextRequest) {
     });
 
     // Return success response
-    return NextResponse.json(
-      {
-        data: {
-          user: newUser,
-        },
-      },
-      { status: 201 }
-    );
+    return createCreatedResponse({
+      user: newUser,
+    });
   } catch (error) {
     // Handle Prisma unique constraint error
     if (error instanceof Error && error.message.includes('Unique constraint')) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'User with this email already exists',
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest('User with this email already exists', { code: 'VALIDATION_ERROR' });
     }
 
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 

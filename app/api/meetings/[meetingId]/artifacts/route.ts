@@ -3,11 +3,12 @@
  * GET /api/meetings/[meetingId]/artifacts - Get artifacts
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { checkMeetingAccess } from '@/lib/meeting/rbac';
 import { getTokenFromRequest, verifyToken } from '@/lib/auth/jwt';
 import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from '@/lib/auth/constants';
 import { prisma } from '@/lib/prisma';
+import { createSuccessResponse, createErrorResponse, CommonErrors } from '@/lib/api/response-utils';
 
 export async function GET(
   request: NextRequest,
@@ -21,29 +22,13 @@ export async function GET(
     const token = getTokenFromRequest(cookieHeader);
 
     if (!token) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.UNAUTHORIZED,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED]);
     }
 
     // Verify token
     const payload = verifyToken(token);
     if (!payload) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.INVALID_SESSION,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION]);
     }
 
     // Get user from database to get role
@@ -57,27 +42,15 @@ export async function GET(
     });
 
     if (!user) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_NOT_FOUND,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
-          },
-        },
-        { status: 404 }
+      return createErrorResponse(
+        AUTH_ERROR_CODES.USER_NOT_FOUND,
+        AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
+        404
       );
     }
 
     if (!user.isActive) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_INACTIVE,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE],
-          },
-        },
-        { status: 403 }
-      );
+      return CommonErrors.forbidden(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE]);
     }
 
     // Check meeting access (owner + viewers + Admin can read artifacts)
@@ -89,14 +62,10 @@ export async function GET(
           : accessCheck.error?.code === 'UNAUTHORIZED_ACCESS'
           ? 403
           : 500;
-      return NextResponse.json(
-        {
-          error: {
-            code: accessCheck.error?.code || 'INTERNAL_ERROR',
-            message: accessCheck.error?.message || 'Failed to check access',
-          },
-        },
-        { status: statusCode }
+      return createErrorResponse(
+        accessCheck.error?.code || 'INTERNAL_ERROR',
+        accessCheck.error?.message || 'Failed to check access',
+        statusCode
       );
     }
 
@@ -113,15 +82,7 @@ export async function GET(
     });
 
     if (!meeting) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'MEETING_NOT_FOUND',
-            message: 'Meeting not found',
-          },
-        },
-        { status: 404 }
-      );
+      return CommonErrors.notFound('Meeting');
     }
 
     // Get artifacts from database
@@ -133,41 +94,21 @@ export async function GET(
     });
 
     if (!artifacts) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'ARTIFACTS_NOT_FOUND',
-            message: 'Artifacts not found for this meeting',
-          },
-        },
-        { status: 404 }
+      return createErrorResponse(
+        'ARTIFACTS_NOT_FOUND',
+        'Artifacts not found for this meeting',
+        404
       );
     }
 
     // Return success response
     // artifactsPayload contains { artifacts: {...}, quality: {...} }
     // Also include artifactsConfig from scenario
-    return NextResponse.json(
-      {
-        data: {
-          artifacts: artifacts.artifactsPayload,
-          artifactsConfig: meeting.scenario.artifactsConfig || { sections: [] },
-        },
-      },
-      { status: 200 }
-    );
+    return createSuccessResponse({
+      artifacts: artifacts.artifactsPayload,
+      artifactsConfig: meeting.scenario.artifactsConfig || { sections: [] },
+    });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
-
-

@@ -3,17 +3,10 @@
  * POST /api/auth/register
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { CommonErrors } from '@/lib/api/response-utils';
 
 export async function POST(request: NextRequest) {
-  return NextResponse.json(
-    {
-      error: {
-        code: 'REGISTRATION_DISABLED',
-        message: 'Registration is disabled. Please contact administrator.',
-      },
-    },
-    { status: 403 }
-  );
+  return CommonErrors.forbidden('Registration is disabled. Please contact administrator.');
 }
 

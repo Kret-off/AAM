@@ -7,6 +7,9 @@ import { prisma } from '../prisma';
 import { MeetingStatus } from '@prisma/client';
 import { AUTO_RETRY_CONSTANTS } from './constants';
 import { enqueueProcessingJob } from './queue';
+import { createModuleLogger } from '../logger';
+
+const logger = createModuleLogger('Orchestrator:AutoRetryWorker');
 
 /**
  * Schedule automatic retries for meetings that are ready
@@ -56,16 +59,12 @@ export async function scheduleAutoRetries(): Promise<number> {
       try {
         // Check if uploadBlob is still available
         if (!meeting.uploadBlob || meeting.uploadBlob.deletedAt) {
-          console.log(
-            `[AutoRetry Worker] Skipping meeting ${meeting.id}: UploadBlob deleted`
-          );
+          logger.info(`Skipping meeting ${meeting.id}: UploadBlob deleted`);
           continue;
         }
 
         if (meeting.uploadBlob.expiresAt && new Date(meeting.uploadBlob.expiresAt) < now) {
-          console.log(
-            `[AutoRetry Worker] Skipping meeting ${meeting.id}: UploadBlob expired`
-          );
+          logger.info(`Skipping meeting ${meeting.id}: UploadBlob expired`);
           continue;
         }
 
@@ -88,24 +87,21 @@ export async function scheduleAutoRetries(): Promise<number> {
         // Enqueue processing job
         await enqueueProcessingJob(meeting.id);
 
-        console.log(
-          `[AutoRetry Worker] Scheduled retry ${meeting.autoRetryCount + 1}/${AUTO_RETRY_CONSTANTS.MAX_AUTO_RETRIES} for meeting ${meeting.id}`
+        logger.info(
+          `Scheduled retry ${meeting.autoRetryCount + 1}/${AUTO_RETRY_CONSTANTS.MAX_AUTO_RETRIES} for meeting ${meeting.id}`
         );
 
         processedCount++;
       } catch (error) {
-        console.error(
-          `[AutoRetry Worker] Failed to process retry for meeting ${meeting.id}:`,
-          error
-        );
+        logger.error(`Failed to process retry for meeting ${meeting.id}`, error);
         // Continue with next meeting
       }
     }
 
-    console.log(`[AutoRetry Worker] Processed ${processedCount} retries`);
+    logger.info(`Processed ${processedCount} retries`);
     return processedCount;
   } catch (error) {
-    console.error('[AutoRetry Worker] Error in scheduleAutoRetries:', error);
+    logger.error('Error in scheduleAutoRetries', error);
     throw error;
   }
 }

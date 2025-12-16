@@ -3,13 +3,15 @@
  * POST /api/meetings/[meetingId]/retry
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getTokenFromRequest, verifyToken } from '@/lib/auth/jwt';
 import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from '@/lib/auth/constants';
 import { prisma } from '@/lib/prisma';
 import { checkOwnerAccess } from '@/lib/meeting/rbac';
 import { enqueueProcessingJob } from '@/lib/orchestrator/queue';
 import { MeetingStatus } from '@prisma/client';
+import { createSuccessResponse, createErrorResponse, CommonErrors } from '@/lib/api/response-utils';
+import { logger } from '@/lib/logger';
 
 export async function POST(
   request: NextRequest,
@@ -23,29 +25,13 @@ export async function POST(
     const token = getTokenFromRequest(cookieHeader);
 
     if (!token) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.UNAUTHORIZED,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED]);
     }
 
     // Verify token
     const payload = verifyToken(token);
     if (!payload) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.INVALID_SESSION,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION]);
     }
 
     // Get user from database
@@ -58,40 +44,24 @@ export async function POST(
     });
 
     if (!user) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_NOT_FOUND,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
-          },
-        },
-        { status: 404 }
+      return createErrorResponse(
+        AUTH_ERROR_CODES.USER_NOT_FOUND,
+        AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
+        404
       );
     }
 
     if (!user.isActive) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_INACTIVE,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE],
-          },
-        },
-        { status: 403 }
-      );
+      return CommonErrors.forbidden(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE]);
     }
 
     // Check owner access
     const ownerCheck = await checkOwnerAccess(meetingId, user.id);
     if (!ownerCheck.allowed) {
-      return NextResponse.json(
-        {
-          error: {
-            code: ownerCheck.error!.code,
-            message: ownerCheck.error!.message,
-          },
-        },
-        { status: ownerCheck.error!.code === 'MEETING_NOT_FOUND' ? 404 : 403 }
+      return createErrorResponse(
+        ownerCheck.error!.code,
+        ownerCheck.error!.message,
+        ownerCheck.error!.code === 'MEETING_NOT_FOUND' ? 404 : 403
       );
     }
 
@@ -116,46 +86,21 @@ export async function POST(
     });
 
     if (!meeting) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'MEETING_NOT_FOUND',
-            message: 'Meeting not found',
-          },
-        },
-        { status: 404 }
-      );
+      return CommonErrors.notFound('Meeting');
     }
 
     // Check if status allows retry
     const allowedStatuses: MeetingStatus[] = ['Failed_Transcription', 'Failed_LLM', 'Failed_System'];
     if (!allowedStatuses.includes(meeting.status)) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_STATUS',
-            message: 'Meeting status does not allow retry',
-            details: {
-              currentStatus: meeting.status,
-              allowedStatuses,
-            },
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest('Meeting status does not allow retry', {
+        currentStatus: meeting.status,
+        allowedStatuses,
+      });
     }
 
     // Check if upload blob exists and is not deleted
     if (!meeting.uploadBlob || meeting.uploadBlob.deletedAt) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'UPLOAD_BLOB_NOT_AVAILABLE',
-            message: 'Upload file is not available for retry',
-          },
-        },
-        { status: 400 }
-      );
+      return CommonErrors.badRequest('Upload file is not available for retry');
     }
 
     // Determine new status based on current status
@@ -200,26 +145,11 @@ export async function POST(
     await enqueueProcessingJob(meetingId);
 
     // Return success response
-    return NextResponse.json(
-      {
-        data: {
-          success: true,
-        },
-      },
-      { status: 200 }
-    );
+    return createSuccessResponse({
+      success: true,
+    });
   } catch (error) {
-    console.error('[Retry] Error processing retry request:', error);
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process retry request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    logger.error('[Retry] Error processing retry request:', error);
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
-

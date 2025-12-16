@@ -75,6 +75,8 @@ export async function deleteUser(
   }
 
   // Validate user ID
+  // Skip UUID validation as we are migrating to short IDs
+  /*
   const idValidation = validateUserId(userId);
   if (!idValidation.valid) {
     return {
@@ -84,6 +86,7 @@ export async function deleteUser(
       },
     };
   }
+  */
 
   try {
     // Check if user exists
@@ -165,6 +168,7 @@ export async function deleteUser(
     };
   }
 }
+
 
 
 

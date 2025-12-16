@@ -5,7 +5,8 @@
  * DELETE /api/participants/[participantId] - Delete participant
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { createErrorResponse, CommonErrors } from '@/lib/api/response-utils';
 
 export async function GET(
   request: NextRequest,
@@ -14,26 +15,13 @@ export async function GET(
   try {
     const { participantId } = await params;
     // TODO: Implement get participant logic
-    return NextResponse.json(
-      {
-        error: {
-          code: 'NOT_IMPLEMENTED',
-          message: 'Get participant endpoint not yet implemented',
-        },
-      },
-      { status: 501 }
+    return createErrorResponse(
+      'NOT_IMPLEMENTED',
+      'Get participant endpoint not yet implemented',
+      501
     );
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -44,26 +32,13 @@ export async function PATCH(
   try {
     const { participantId } = await params;
     // TODO: Implement update participant logic
-    return NextResponse.json(
-      {
-        error: {
-          code: 'NOT_IMPLEMENTED',
-          message: 'Update participant endpoint not yet implemented',
-        },
-      },
-      { status: 501 }
+    return createErrorResponse(
+      'NOT_IMPLEMENTED',
+      'Update participant endpoint not yet implemented',
+      501
     );
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -74,33 +49,12 @@ export async function DELETE(
   try {
     const { participantId } = await params;
     // TODO: Implement delete participant logic
-    return NextResponse.json(
-      {
-        error: {
-          code: 'NOT_IMPLEMENTED',
-          message: 'Delete participant endpoint not yet implemented',
-        },
-      },
-      { status: 501 }
+    return createErrorResponse(
+      'NOT_IMPLEMENTED',
+      'Delete participant endpoint not yet implemented',
+      501
     );
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
-
-
-
-
-
-
-
-

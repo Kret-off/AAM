@@ -7,6 +7,9 @@ import { prisma } from '../prisma';
 import { AUTO_RETRY_CONSTANTS } from './constants';
 import { calculateNextRetryTime } from './auto-retry';
 import { enqueueProcessingJobWithDelay } from './queue';
+import { createModuleLogger } from '../logger';
+
+const logger = createModuleLogger('Orchestrator:AutoRetryUtils');
 
 /**
  * Schedule automatic retry for a failed meeting
@@ -32,14 +35,14 @@ export async function scheduleAutoRetry(meetingId: string): Promise<boolean> {
     });
 
     if (!meeting) {
-      console.error(`[AutoRetry] Meeting ${meetingId} not found`);
+      logger.error(`Meeting ${meetingId} not found`);
       return false;
     }
 
     // Check if max retries reached
     if (meeting.autoRetryCount >= AUTO_RETRY_CONSTANTS.MAX_AUTO_RETRIES) {
-      console.log(
-        `[AutoRetry] Max retries reached for meeting ${meetingId} (${meeting.autoRetryCount}/${AUTO_RETRY_CONSTANTS.MAX_AUTO_RETRIES})`
+      logger.info(
+        `Max retries reached for meeting ${meetingId} (${meeting.autoRetryCount}/${AUTO_RETRY_CONSTANTS.MAX_AUTO_RETRIES})`
       );
       return false;
     }
@@ -48,7 +51,7 @@ export async function scheduleAutoRetry(meetingId: string): Promise<boolean> {
     if (!meeting.uploadBlob || meeting.uploadBlob.deletedAt || meeting.uploadBlob.expiresAt) {
       const expiresAt = meeting.uploadBlob?.expiresAt;
       if (expiresAt && new Date(expiresAt) < new Date()) {
-        console.log(`[AutoRetry] UploadBlob expired for meeting ${meetingId}`);
+        logger.info(`UploadBlob expired for meeting ${meetingId}`);
         return false;
       }
     }
@@ -58,7 +61,7 @@ export async function scheduleAutoRetry(meetingId: string): Promise<boolean> {
     const delayMs = nextRetryAt.getTime() - Date.now();
 
     if (delayMs <= 0) {
-      console.log(`[AutoRetry] Delay is negative or zero for meeting ${meetingId}, scheduling immediately`);
+      logger.info(`Delay is negative or zero for meeting ${meetingId}, scheduling immediately`);
     }
 
     // Update meeting with retry info
@@ -74,13 +77,13 @@ export async function scheduleAutoRetry(meetingId: string): Promise<boolean> {
     // Schedule job with delay
     await enqueueProcessingJobWithDelay(meetingId, Math.max(0, delayMs));
 
-    console.log(
-      `[AutoRetry] Scheduled retry ${meeting.autoRetryCount + 1}/${AUTO_RETRY_CONSTANTS.MAX_AUTO_RETRIES} for meeting ${meetingId} at ${nextRetryAt.toISOString()}`
+    logger.info(
+      `Scheduled retry ${meeting.autoRetryCount + 1}/${AUTO_RETRY_CONSTANTS.MAX_AUTO_RETRIES} for meeting ${meetingId} at ${nextRetryAt.toISOString()}`
     );
 
     return true;
   } catch (error) {
-    console.error(`[AutoRetry] Failed to schedule retry for meeting ${meetingId}:`, error);
+    logger.error(`Failed to schedule retry for meeting ${meetingId}`, error);
     return false;
   }
 }

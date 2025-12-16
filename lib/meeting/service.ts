@@ -21,6 +21,9 @@ import { validateClientId } from '../client-kb/validation';
 import { validateMeetingTypeId, validateScenarioId } from '../scenario/validation';
 import { validateParticipantId } from '../directory/validation';
 import { publishMeetingStatusUpdate } from '../realtime/pubsub';
+import { createModuleLogger } from '../logger';
+
+const logger = createModuleLogger('Meeting');
 
 export interface MeetingServiceError {
   code: string;
@@ -253,7 +256,7 @@ export async function createMeeting(
     };
   } catch (error) {
     // Log error for debugging
-    console.error('Error creating meeting:', error);
+    logger.error('Error creating meeting', error);
     
     // Check if it's a Prisma error
     if (error && typeof error === 'object' && 'code' in error) {
@@ -386,12 +389,12 @@ export async function getMeetingDetail(
   userId: string,
   userRole: UserRole
 ): Promise<{ data: MeetingDetailResponse } | { error: MeetingServiceError }> {
-  console.log('getMeetingDetail called:', { meetingId, userId, userRole });
+  logger.debug('getMeetingDetail called', { meetingId, userId, userRole });
 
   // Check access
   const accessCheck = await checkMeetingAccess(meetingId, userId, userRole);
   if (!accessCheck.allowed) {
-    console.log('Access denied:', accessCheck.error);
+    logger.debug('Access denied', accessCheck.error);
     return {
       error: {
         code: accessCheck.error!.code,
@@ -400,7 +403,7 @@ export async function getMeetingDetail(
     };
   }
 
-  console.log('Access granted, fetching meeting data...');
+  logger.debug('Access granted, fetching meeting data');
 
   try {
     const meeting = await prisma.meeting.findUnique({
@@ -481,7 +484,7 @@ export async function getMeetingDetail(
       },
     });
 
-    console.log('Meeting query result:', {
+    logger.debug('Meeting query result', {
       found: !!meeting,
       hasClient: !!meeting?.client,
       hasOwner: !!meeting?.owner,
@@ -491,7 +494,7 @@ export async function getMeetingDetail(
     });
 
     if (!meeting) {
-      console.error('Meeting not found:', meetingId);
+      logger.error('Meeting not found', null, { meetingId });
       return {
         error: {
           code: MEETING_ERROR_CODES.MEETING_NOT_FOUND,
@@ -502,7 +505,7 @@ export async function getMeetingDetail(
 
     // Validate required relations exist
     if (!meeting.client) {
-      console.error('Missing client relation:', { meetingId, clientId: meeting.clientId });
+      logger.error('Missing client relation', null, { meetingId, clientId: meeting.clientId });
       return {
         error: {
           code: 'INTERNAL_ERROR',
@@ -533,7 +536,7 @@ export async function getMeetingDetail(
     }
 
     if (!meeting.scenario) {
-      console.error('Missing scenario relation:', { meetingId, scenarioId: meeting.scenarioId });
+      logger.error('Missing scenario relation', null, { meetingId, scenarioId: meeting.scenarioId });
       return {
         error: {
           code: 'INTERNAL_ERROR',
@@ -543,7 +546,7 @@ export async function getMeetingDetail(
       };
     }
 
-    console.log('All relations present, building response...');
+    logger.debug('All relations present, building response');
 
     try {
       // Build response data - relations are already validated above
@@ -604,14 +607,14 @@ export async function getMeetingDetail(
         })),
       };
 
-      console.log('Response data built successfully');
+      logger.debug('Response data built successfully');
       return { data: responseData };
     } catch (buildError) {
-      console.error('Error building response data:', buildError);
+      logger.error('Error building response data', buildError);
       throw buildError; // Re-throw to be caught by outer catch
     }
   } catch (error) {
-    console.error('Error in getMeetingDetail:', error);
+    logger.error('Error in getMeetingDetail', error);
     return {
       error: {
         code: 'INTERNAL_ERROR',
@@ -903,7 +906,7 @@ export async function updateMeetingStatus(
       fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'lib/meeting/service.ts:900',message:'publishMeetingStatusUpdate catch error',data:{meetingId,newStatus,error:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
       // #endregion
       // Log but don't throw - status update should not fail due to pub/sub issues
-      console.error(`[MeetingService] Failed to publish status update event:`, error);
+      logger.error('Failed to publish status update event', error);
     });
 
     return {

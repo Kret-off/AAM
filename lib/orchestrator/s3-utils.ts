@@ -5,6 +5,9 @@
 
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createModuleLogger } from '../logger';
+
+const logger = createModuleLogger('Orchestrator:S3Utils');
 
 /**
  * Get S3 client instance
@@ -66,7 +69,7 @@ export async function downloadFileFromS3(key: string): Promise<Buffer> {
     throw new Error('S3_BUCKET_NAME environment variable is not set');
   }
 
-  console.log(`[S3] Starting download for key: ${key}`);
+  logger.debug(`Starting download for key: ${key}`);
 
   try {
     const command = new GetObjectCommand({
@@ -89,11 +92,15 @@ export async function downloadFileFromS3(key: string): Promise<Buffer> {
     }
 
     const buffer = Buffer.concat(chunks);
-    console.log(`[S3] Download completed. Size: ${buffer.length} bytes (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
+    logger.debug(`Download completed`, {
+      key,
+      size: buffer.length,
+      sizeMB: (buffer.length / 1024 / 1024).toFixed(2),
+    });
 
     return buffer;
   } catch (error) {
-    console.error(`[S3] Error downloading file with key ${key}:`, error);
+    logger.error(`Error downloading file with key ${key}`, error);
     throw error instanceof Error
       ? new Error(`Failed to download file from S3: ${error.message}`)
       : new Error('Failed to download file from S3: Unknown error');

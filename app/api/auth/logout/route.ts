@@ -3,16 +3,15 @@
  * POST /api/auth/logout
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { authConfig } from '@/lib/auth/config';
+import { createSuccessResponse, CommonErrors } from '@/lib/api/response-utils';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
     // Create response
-    const response = NextResponse.json(
-      { message: 'Logged out successfully' },
-      { status: 200 }
-    );
+    const response = createSuccessResponse({ message: 'Logged out successfully' });
 
     // Clear session cookie
     response.cookies.set(authConfig.session.cookieName, '', {
@@ -25,17 +24,8 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('Logout error:', error);
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    logger.error('Logout error:', error);
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 

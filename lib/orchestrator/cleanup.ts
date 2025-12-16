@@ -6,6 +6,9 @@
 import { prisma } from '../prisma';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { ORCHESTRATOR_CONSTANTS } from './constants';
+import { createModuleLogger } from '../logger';
+
+const logger = createModuleLogger('Orchestrator:Cleanup');
 
 /**
  * Get S3 client instance
@@ -74,7 +77,7 @@ export async function deleteUploadBlob(
         );
       } catch (error) {
         // Log error but continue with DB cleanup
-        console.error('Failed to delete file from S3:', error);
+        logger.error('Failed to delete file from S3', error);
       }
 
       // Mark as deleted in database
@@ -158,14 +161,14 @@ export async function cleanupExpiredUploadBlobs(): Promise<{
 
         deleted++;
       } catch (error) {
-        console.error(`Failed to cleanup blob ${blob.id}:`, error);
+        logger.error(`Failed to cleanup blob ${blob.id}`, error);
         errors++;
       }
     }
 
     return { deleted, errors };
   } catch (error) {
-    console.error('Failed to cleanup expired upload blobs:', error);
+    logger.error('Failed to cleanup expired upload blobs', error);
     return { deleted, errors: errors + 1 };
   }
 }

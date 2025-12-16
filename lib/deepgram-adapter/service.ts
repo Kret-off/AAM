@@ -14,6 +14,9 @@ import {
   DEEPGRAM_ERROR_CODES,
   DEEPGRAM_ERROR_MESSAGES,
 } from './constants';
+import { createModuleLogger } from '../logger';
+
+const logger = createModuleLogger('Deepgram');
 
 let deepgramClient: ReturnType<typeof createClient> | undefined;
 
@@ -22,7 +25,7 @@ let deepgramClient: ReturnType<typeof createClient> | undefined;
  */
 export function resetDeepgramClient(): void {
   deepgramClient = undefined;
-  console.log('[Deepgram] Client cache reset');
+  logger.info('Client cache reset');
 }
 
 /**
@@ -43,11 +46,11 @@ function getDeepgramClient(): ReturnType<typeof createClient> {
     
     // Validate key format (should start with "dg_")
     if (!trimmedKey.startsWith('dg_')) {
-      console.warn('[Deepgram] Warning: API key does not start with "dg_". This may indicate an invalid key format.');
+      logger.warn('API key does not start with "dg_". This may indicate an invalid key format.');
     }
     
     deepgramClient = createClient(trimmedKey);
-    console.log(`[Deepgram] Client created with key length: ${trimmedKey.length} characters`);
+    logger.debug('Client created', { keyLength: trimmedKey.length });
   }
   return deepgramClient;
 }
@@ -110,7 +113,7 @@ export async function transcribe(
         options.keyterm = request.keyterms;
       }
       
-      console.log(`[Deepgram] Language parameter: ${languageCode}`);
+      logger.debug('Language parameter', { languageCode });
 
       // Start transcription - use fileBuffer if provided, otherwise use fileUrl
       let result;
@@ -118,9 +121,13 @@ export async function transcribe(
 
       if (request.fileBuffer) {
         // Use transcribeFile for direct file upload
-        console.log(`[Deepgram] Starting transcription (attempt ${attempt + 1}/${DEEPGRAM_CONSTANTS.MAX_RETRIES})`);
-        console.log(`[Deepgram] File size: ${request.fileBuffer.length} bytes (${(request.fileBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
-        console.log(`[Deepgram] Options:`, JSON.stringify(options, null, 2));
+        logger.info('Starting transcription', {
+          attempt: attempt + 1,
+          maxRetries: DEEPGRAM_CONSTANTS.MAX_RETRIES,
+          fileSize: request.fileBuffer.length,
+          fileSizeMB: (request.fileBuffer.length / 1024 / 1024).toFixed(2),
+          options,
+        });
         
         const response = await client.listen.prerecorded.transcribeFile(
           request.fileBuffer,
@@ -130,7 +137,7 @@ export async function transcribe(
         error = response.error;
         
         if (error) {
-          console.error(`[Deepgram] Transcription error on attempt ${attempt + 1}:`, {
+          logger.error(`Transcription error on attempt ${attempt + 1}`, error, {
             message: error.message,
             type: error.type,
             code: (error as any).code,
@@ -138,7 +145,7 @@ export async function transcribe(
             fullError: error,
           });
         } else {
-          console.log(`[Deepgram] Transcription successful on attempt ${attempt + 1}`);
+          logger.info('Transcription successful', { attempt: attempt + 1 });
         }
       } else if (request.fileUrl) {
         // Use transcribeUrl for URL-based transcription (backward compatibility)
@@ -172,12 +179,12 @@ export async function transcribe(
           isAuthError,
           fullError: JSON.stringify(error, null, 2),
         };
-        console.error('[Deepgram] API Error Details:', errorDetails);
+        logger.error('API Error Details', null, errorDetails);
         
         // Provide more helpful error message for auth errors
         if (isAuthError) {
           // Reset client cache on auth error - key might have changed
-          console.warn('[Deepgram] Authentication error detected, resetting client cache');
+          logger.warn('Authentication error detected, resetting client cache');
           resetDeepgramClient();
           
           const apiKey = process.env.DEEPGRAM_API_KEY;
@@ -292,9 +299,11 @@ export async function transcribe(
       const detectedLanguage = metadata?.model_info?.language;
       const language = request.language || 'ru'; // Always use requested language or default to 'ru'
       
-      console.log(`[Deepgram] Requested language: ${request.language || 'ru (default)'}`);
-      console.log(`[Deepgram] Detected language from API: ${detectedLanguage || 'not provided'}`);
-      console.log(`[Deepgram] Final language used: ${language}`);
+      logger.debug('Language processing', {
+        requested: request.language || 'ru (default)',
+        detected: detectedLanguage || 'not provided',
+        final: language,
+      });
       
       const duration = metadata?.duration || 0;
 
@@ -309,7 +318,7 @@ export async function transcribe(
       };
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown error');
-      console.error(`[Deepgram] Exception on attempt ${attempt + 1}:`, {
+      logger.error(`Exception on attempt ${attempt + 1}`, error, {
         message: lastError.message,
         stack: lastError.stack,
         name: lastError.name,
@@ -319,7 +328,7 @@ export async function transcribe(
       // If it's not the last attempt, wait before retrying
       if (attempt < DEEPGRAM_CONSTANTS.MAX_RETRIES - 1) {
         const delay = 1000 * (attempt + 1);
-        console.log(`[Deepgram] Waiting ${delay}ms before retry...`);
+        logger.debug('Waiting before retry', { delay });
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
@@ -351,7 +360,7 @@ export async function transcribe(
     },
   };
   
-  console.error('[Deepgram] All retry attempts exhausted. Final error:', errorResponse.error.details);
+  logger.error('All retry attempts exhausted', null, errorResponse.error.details);
   
   return errorResponse;
 }

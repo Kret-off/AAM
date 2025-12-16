@@ -3,12 +3,13 @@
  * GET /api/meetings/[meetingId]/llm-interactions - Get LLM interaction history
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { checkMeetingAccess } from '@/lib/meeting/rbac';
 import { getTokenFromRequest, verifyToken } from '@/lib/auth/jwt';
 import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from '@/lib/auth/constants';
 import { prisma } from '@/lib/prisma';
 import { getLLMInteractions } from '@/lib/llm-interaction';
+import { createSuccessResponse, createErrorResponse, CommonErrors } from '@/lib/api/response-utils';
 
 export async function GET(
   request: NextRequest,
@@ -22,29 +23,13 @@ export async function GET(
     const token = getTokenFromRequest(cookieHeader);
 
     if (!token) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.UNAUTHORIZED,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.UNAUTHORIZED]);
     }
 
     // Verify token
     const payload = verifyToken(token);
     if (!payload) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.INVALID_SESSION,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION],
-          },
-        },
-        { status: 401 }
-      );
+      return CommonErrors.unauthorized(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.INVALID_SESSION]);
     }
 
     // Get user from database to get role
@@ -58,27 +43,15 @@ export async function GET(
     });
 
     if (!user) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_NOT_FOUND,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
-          },
-        },
-        { status: 404 }
+      return createErrorResponse(
+        AUTH_ERROR_CODES.USER_NOT_FOUND,
+        AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_NOT_FOUND],
+        404
       );
     }
 
     if (!user.isActive) {
-      return NextResponse.json(
-        {
-          error: {
-            code: AUTH_ERROR_CODES.USER_INACTIVE,
-            message: AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE],
-          },
-        },
-        { status: 403 }
-      );
+      return CommonErrors.forbidden(AUTH_ERROR_MESSAGES[AUTH_ERROR_CODES.USER_INACTIVE]);
     }
 
     // Check meeting access (owner + viewers + Admin can read LLM interactions)
@@ -90,14 +63,10 @@ export async function GET(
           : accessCheck.error?.code === 'UNAUTHORIZED_ACCESS'
           ? 403
           : 500;
-      return NextResponse.json(
-        {
-          error: {
-            code: accessCheck.error?.code || 'INTERNAL_ERROR',
-            message: accessCheck.error?.message || 'Failed to check access',
-          },
-        },
-        { status: statusCode }
+      return createErrorResponse(
+        accessCheck.error?.code || 'INTERNAL_ERROR',
+        accessCheck.error?.message || 'Failed to check access',
+        statusCode
       );
     }
 
@@ -105,32 +74,10 @@ export async function GET(
     const interactions = await getLLMInteractions(meetingId);
 
     // Return success response
-    return NextResponse.json(
-      {
-        data: {
-          interactions,
-        },
-      },
-      { status: 200 }
-    );
+    return createSuccessResponse({
+      interactions,
+    });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to process request',
-          details: { originalError: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      },
-      { status: 500 }
-    );
+    return CommonErrors.internal(undefined, { originalError: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
-
-
-
-
-
-
-
-
