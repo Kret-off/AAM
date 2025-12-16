@@ -1,0 +1,31 @@
+---
+description: Enforce ER-driven DB schema and status enums consistency for AAM
+globs: "**/*"
+alwaysApply: true
+---
+
+# AAM DB / ER Lock
+
+DB schema MUST match the approved ER model.
+Do not rename entities/fields without explicit request.
+
+## Entities that MUST exist (v1)
+USER, CLIENT, MEETING_TYPE, PROMPT_SCENARIO, DIRECTORY_PARTICIPANT,
+MEETING, MEETING_PARTICIPANT, MEETING_VIEWER, UPLOAD_BLOB,
+TRANSCRIPT, ARTIFACTS, VALIDATION.
+
+## Meeting status enum (closed)
+Uploaded, Transcribing, LLM_Processing, Ready, Validated, Rejected,
+Failed_Transcription, Failed_LLM, Failed_System
+
+## Relationship rules (v1)
+- UPLOAD_BLOB is 1:1 with MEETING (unique meeting_id)
+- TRANSCRIPT is 1:1 with MEETING
+- ARTIFACTS is 1:1 with MEETING
+- VALIDATION is 1:1 with MEETING
+- MEETING_VIEWER is (meeting_id,user_id) unique
+- MEETING_PARTICIPANT snapshots participant fields at add-time; do NOT rely on mutable directory fields
+
+## Migrations policy
+- Use migrations; no manual DB drift.
+- Add indexes only if required by v1 queries.

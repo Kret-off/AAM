@@ -1,0 +1,16 @@
+---
+description: Enforce large file upload approach for AAM (<=1.2GB) with presigned uploads to S3/MinIO
+globs: "**/*"
+alwaysApply: true
+---
+
+# AAM Large Upload (<=1.2GB)
+
+Uploads MUST NOT be proxied through Next.js memory.
+Use S3/MinIO presigned uploads (multipart if needed).
+
+## Requirements
+- Validate size <= 1.2GB and allowed mime/ext before issuing presigned URL(s)
+- Persist UploadBlob metadata with expires_at
+- UI uploads directly to object storage
+- After upload completes: enqueue processing job for meeting_id

@@ -1,0 +1,27 @@
+---
+description: Enforce strict LLM JSON contract and schema validation for AAM artifacts
+globs: "**/*"
+alwaysApply: true
+---
+
+# AAM LLM Contract
+
+LLM output MUST be strict JSON validated by scenario.output_schema.
+Never accept free-form text responses.
+
+## Response structure
+- Response structure is defined by outputSchema (no hardcoded wrapper)
+- outputSchema is stored in PROMPT_SCENARIO and is editable by Admin
+- No mandatory wrapper structure - flexibility for different meeting types
+
+## Validation rules
+- Validate server-side against outputSchema directly
+- If invalid:
+  - attempt ONE repair pass asking for JSON only
+  - if still invalid => Failed_LLM
+
+## Determinism rules
+- Always instruct: "Return JSON only; no markdown; no prose outside JSON"
+- Do not change schema shape in code. Schemas live in PROMPT_SCENARIO and are editable by Admin.
+- Persist artifacts_payload exactly after validation (no beautify that mutates content).
+- Generate prompt instructions dynamically from outputSchema (arrays, enums, etc.)

@@ -1,0 +1,276 @@
+{
+  "type": "object",
+  "required": ["artifacts", "quality"],
+  "properties": {
+    "artifacts": {
+      "type": "object",
+      "properties": {
+        "meta": {
+          "type": "object",
+          "properties": {
+            "brand": { "type": ["string", "null"] },
+            "meeting_date": { "type": ["string", "null"] },
+            "deal_stage": { "type": ["string", "null"] },
+            "source": { "type": ["string", "null"] },
+            "participants": {
+              "type": "object",
+              "properties": {
+                "client": { "type": "array", "items": { "type": "string" } },
+                "our_team": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "client_profile": {
+          "type": "object",
+          "properties": {
+            "company_name": { "type": ["string", "null"] },
+            "industry": { "type": ["string", "null"] },
+            "business_model": { "type": ["string", "null"] },
+            "geo": { "type": ["string", "null"] },
+            "current_tools": { "type": "array", "items": { "type": "string" } },
+            "team_size_or_users": {
+              "type": "object",
+              "properties": {
+                "value": { "type": ["number", "string", "null"] },
+                "unit": { "type": ["string", "null"] },
+                "evidence": { "type": ["object", "null"] }
+              }
+            }
+          }
+        },
+        "decision_and_stakeholders": {
+          "type": "object",
+          "properties": {
+            "decision_maker": { "type": ["string", "null"] },
+            "users": { "type": "array", "items": { "type": "string" } },
+            "roles_notes": { "type": "array", "items": { "type": "string" } },
+            "evidence": { "type": "array", "items": { "type": "object" } }
+          }
+        },
+        "pains": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pain": { "type": "string" },
+              "impact": { "type": ["string", "null"] },
+              "priority": { "type": ["string", "null"], "enum": ["high", "medium", "low", null] },
+              "evidence": {
+                "type": "object",
+                "properties": {
+                  "quote": { "type": "string" },
+                  "speaker": { "type": "string", "enum": ["client", "our_team", "unknown"] }
+                },
+                "required": ["quote", "speaker"]
+              }
+            },
+            "required": ["pain", "evidence"]
+          }
+        },
+        "tasks_and_requirements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "task": { "type": "string" },
+              "category": {
+                "type": "string",
+                "enum": ["sales", "service", "production", "support", "management", "analytics", "integration", "other"]
+              },
+              "must_have": { "type": ["boolean", "null"] },
+              "details": { "type": ["string", "null"] },
+              "evidence": {
+                "type": "object",
+                "properties": {
+                  "quote": { "type": "string" },
+                  "speaker": { "type": "string", "enum": ["client", "our_team", "unknown"] }
+                },
+                "required": ["quote", "speaker"]
+              }
+            },
+            "required": ["task", "category", "evidence"]
+          }
+        },
+        "process_map": {
+          "type": "object",
+          "properties": {
+            "as_is_steps": { "type": "array", "items": { "type": "string" } },
+            "bottlenecks": { "type": "array", "items": { "type": "string" } },
+            "evidence": { "type": "array", "items": { "type": "object" } }
+          }
+        },
+        "channels_and_integrations": {
+          "type": "object",
+          "properties": {
+            "channels": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "channel": {
+                    "type": "string",
+                    "enum": ["site", "avito", "whatsapp", "telegram", "email", "phone", "other"]
+                  },
+                  "details": { "type": ["string", "null"] },
+                  "raw_value": { "type": ["string", "null"] },
+                  "evidence": {
+                    "type": "object",
+                    "properties": {
+                      "quote": { "type": "string" },
+                      "speaker": { "type": "string", "enum": ["client", "our_team", "unknown"] }
+                    },
+                    "required": ["quote", "speaker"]
+                  }
+                },
+                "required": ["channel", "evidence"]
+              }
+            },
+            "integrations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "system": { "type": "string" },
+                  "direction": { "type": ["string", "null"], "enum": ["inbound", "outbound", "both", null] },
+                  "details": { "type": ["string", "null"] },
+                  "raw_value": { "type": ["string", "null"] },
+                  "evidence": {
+                    "type": "object",
+                    "properties": {
+                      "quote": { "type": "string" },
+                      "speaker": { "type": "string", "enum": ["client", "our_team", "unknown"] }
+                    },
+                    "required": ["quote", "speaker"]
+                  }
+                },
+                "required": ["system", "evidence"]
+              }
+            }
+          }
+        },
+        "numbers_and_terms": {
+          "type": "object",
+          "properties": {
+            "budget": {
+              "type": "object",
+              "properties": {
+                "value": { "type": ["number", "string", "null"] },
+                "currency": { "type": ["string", "null"] },
+                "evidence": { "type": ["object", "null"] }
+              }
+            },
+            "timeline": {
+              "type": "object",
+              "properties": {
+                "value": { "type": ["number", "string", "null"] },
+                "unit": { "type": ["string", "null"] },
+                "evidence": { "type": ["object", "null"] }
+              }
+            },
+            "users_count": {
+              "type": "object",
+              "properties": {
+                "value": { "type": ["number", "string", "null"] },
+                "unit": { "type": ["string", "null"], "enum": ["users", null] },
+                "evidence": { "type": ["object", "null"] }
+              }
+            },
+            "notes": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "bitrix24_scope_draft": {
+          "type": "object",
+          "properties": {
+            "license": {
+              "type": "object",
+              "properties": {
+                "needs": { "type": ["string", "null"] },
+                "preferred": { "type": ["string", "null"] },
+                "evidence": { "type": ["object", "null"] }
+              }
+            },
+            "work_blocks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "block": {
+                    "type": "string",
+                    "enum": ["discovery", "setup", "crm_pipeline", "automation", "communications", "telephony", "forms", "open_lines", "tasks_projects", "reports", "integrations", "migration", "training", "support", "other"]
+                  },
+                  "items": { "type": "array", "items": { "type": "string" } },
+                  "evidence": { "type": "array", "items": { "type": "object" } }
+                },
+                "required": ["block"]
+              }
+            }
+          }
+        },
+        "proposal_ready_materials": {
+          "type": "object",
+          "properties": {
+            "internal_summary_bullets": { "type": "array", "items": { "type": "string" } },
+            "proposal_focus": { "type": "array", "items": { "type": "string" } },
+            "client_value_emphasis": { "type": "array", "items": { "type": "string" } },
+            "external_recap_2_3_sentences": { "type": "string" }
+          }
+        },
+        "gaps_for_regeneration": {
+          "type": "object",
+          "properties": {
+            "missing_data_items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "item": { "type": "string" },
+                  "why_needed_for_proposal": { "type": "string" },
+                  "severity": { "type": "string", "enum": ["critical", "important", "nice_to_have"] },
+                  "linked_section": {
+                    "type": "string",
+                    "enum": ["client_profile", "decision_and_stakeholders", "pains", "tasks_and_requirements", "process_map", "channels_and_integrations", "numbers_and_terms", "bitrix24_scope_draft", "other"]
+                  }
+                },
+                "required": ["item", "why_needed_for_proposal", "severity", "linked_section"]
+              }
+            },
+            "cannot_determine_from_transcript": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "quality_checks": {
+          "type": "object",
+          "properties": {
+            "ambiguous_phrases": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "raw_fragment": { "type": "string" },
+                  "why_ambiguous": { "type": "string" }
+                },
+                "required": ["raw_fragment", "why_ambiguous"]
+              }
+            },
+            "confidence": { "type": "string", "enum": ["high", "medium", "low"] }
+          }
+        }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "required": ["missing_data_items", "notes"],
+      "properties": {
+        "missing_data_items": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}
+

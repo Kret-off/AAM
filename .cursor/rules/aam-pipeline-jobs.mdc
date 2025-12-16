@@ -1,0 +1,40 @@
+---
+description: AAM pipeline orchestration rules: idempotency, retries, status transitions, and safe cleanup
+globs: "**/*"
+alwaysApply: true
+---
+
+# AAM Pipeline & Jobs
+
+All processing is async via BullMQ.
+Jobs MUST be idempotent and safe to retry.
+
+## Status machine rules
+Uploaded -> Transcribing -> LLM_Processing -> Ready -> (Validated|Rejected)
+
+Failure mapping:
+- STT error => Failed_Transcription
+- LLM/schema error => Failed_LLM
+- System/DB/unknown => Failed_System
+
+Never skip states.
+
+## Idempotency rules
+- meeting_id is the idempotency key.
+- Each stage checks if output already exists:
+  - If TRANSCRIPT exists => do not re-transcribe.
+  - If ARTIFACTS exists and valid => do not re-run LLM.
+- Multiple enqueued jobs for same meeting MUST NOT corrupt state.
+
+## Concurrency control (required)
+- Use a per-meeting lock (prefer Postgres advisory lock OR Redis lock).
+- If lock cannot be acquired => job should retry later.
+
+## Cleanup rules (critical)
+- On success: delete UploadBlob immediately after artifacts are persisted.
+- On failure: set UploadBlob.expires_at = now + 24h (TTL cleanup worker deletes)
+- Cleanup MUST run in finally blocks so exceptions can't leave files permanent.
+
+## Retries
+- External calls: bounded retries with exponential backoff.
+- If retries exhausted => set correct Failed_* status and exit cleanly.

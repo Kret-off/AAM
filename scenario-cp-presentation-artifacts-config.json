@@ -1,0 +1,74 @@
+{
+  "sections": [
+    {
+      "key": "meta",
+      "label": "Метаданные",
+      "order": 1,
+      "visible": true
+    },
+    {
+      "key": "client_profile",
+      "label": "Профиль клиента",
+      "order": 2,
+      "visible": true
+    },
+    {
+      "key": "proposal_ready_materials",
+      "label": "Материалы для предложения",
+      "order": 3,
+      "visible": true
+    },
+    {
+      "key": "additional_needs",
+      "label": "Дополнительные потребности",
+      "order": 4,
+      "visible": true
+    },
+    {
+      "key": "kp_presentation",
+      "label": "Презентация КП",
+      "order": 5,
+      "visible": true
+    },
+    {
+      "key": "client_feedback_on_kp",
+      "label": "Обратная связь по КП",
+      "order": 6,
+      "visible": true
+    },
+    {
+      "key": "client_decision_and_position",
+      "label": "Решение и позиция клиента",
+      "order": 7,
+      "visible": true
+    },
+    {
+      "key": "next_steps",
+      "label": "Следующие шаги",
+      "order": 8,
+      "visible": true
+    },
+    {
+      "key": "risk_assessment",
+      "label": "Оценка рисков",
+      "order": 9,
+      "visible": true
+    },
+    {
+      "key": "sales_manager_assessment",
+      "label": "Оценка менеджера",
+      "order": 10,
+      "visible": true
+    },
+    {
+      "key": "quality",
+      "label": "Качество данных",
+      "order": 11,
+      "visible": true
+    }
+  ]
+}
+
+
+
+

@@ -1,0 +1,500 @@
+{
+  "type": "object",
+  "properties": {
+    "artifacts": {
+      "type": "object",
+      "properties": {
+        "meta": {
+          "type": "object",
+          "properties": {
+            "brand": {
+              "type": "string"
+            },
+            "meeting_date": {
+              "type": ["string", "null"]
+            },
+            "deal_stage": {
+              "type": ["string", "null"]
+            },
+            "source": {
+              "type": ["string", "null"]
+            },
+            "participants": {
+              "type": "object",
+              "properties": {
+                "client": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "our_team": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": ["client", "our_team"]
+            }
+          }
+        },
+        "client_profile": {
+          "type": "object",
+          "properties": {
+            "company_name": {
+              "type": ["string", "null"]
+            },
+            "industry": {
+              "type": ["string", "null"]
+            },
+            "business_model": {
+              "type": ["string", "null"]
+            },
+            "geo": {
+              "type": ["string", "null"]
+            },
+            "current_tools": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "team_size_or_users": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": ["number", "null"]
+                },
+                "unit": {
+                  "type": ["string", "null"]
+                },
+                "evidence": {
+                  "type": ["object", "null"],
+                  "properties": {
+                    "quote": {
+                      "type": "string"
+                    },
+                    "speaker": {
+                      "type": "string",
+                      "enum": ["client", "our_team", "unknown"]
+                    }
+                  },
+                  "required": ["quote", "speaker"]
+                }
+              }
+            }
+          }
+        },
+        "proposal_ready_materials": {
+          "type": "object",
+          "properties": {
+            "internal_summary_bullets": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "proposal_focus": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "client_value_emphasis": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "external_recap_2_3_sentences": {
+              "type": "string"
+            }
+          }
+        },
+        "additional_needs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "need": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string",
+                "enum": ["sales", "service", "production", "support", "management", "analytics", "integration", "other"]
+              },
+              "must_have": {
+                "type": ["boolean", "null"]
+              },
+              "details": {
+                "type": ["string", "null"]
+              },
+              "evidence": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string"
+                  },
+                  "speaker": {
+                    "type": "string",
+                    "enum": ["client", "our_team", "unknown"]
+                  }
+                },
+                "required": ["quote", "speaker"]
+              }
+            },
+            "required": ["need", "evidence"]
+          }
+        },
+        "kp_presentation": {
+          "type": "object",
+          "properties": {
+            "project_overview": {
+              "type": "string"
+            },
+            "stages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "mentioned_cost": {
+                    "type": "string"
+                  },
+                  "mentioned_timeline": {
+                    "type": "string"
+                  },
+                  "evidence": {
+                    "type": "object",
+                    "properties": {
+                      "quote": {
+                        "type": "string"
+                      },
+                      "speaker": {
+                        "type": "string",
+                        "enum": ["client", "our_team", "unknown"]
+                      }
+                    },
+                    "required": ["quote", "speaker"]
+                  }
+                },
+                "required": ["name", "evidence"]
+              }
+            },
+            "total_project_cost": {
+              "type": "string"
+            },
+            "payment_terms": {
+              "type": "string"
+            },
+            "timelines": {
+              "type": "object",
+              "properties": {
+                "discovery_phase": {
+                  "type": "string"
+                },
+                "implementation_phase": {
+                  "type": "string"
+                },
+                "other_timing": {
+                  "type": "string"
+                }
+              }
+            },
+            "bonuses_and_special_terms": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "client_feedback_on_kp": {
+          "type": "object",
+          "properties": {
+            "overall_reaction": {
+              "type": "string"
+            },
+            "comments": {
+              "type": "object",
+              "properties": {
+                "cost": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "comment": {
+                        "type": "string"
+                      },
+                      "evidence": {
+                        "type": "object",
+                        "properties": {
+                          "quote": {
+                            "type": "string"
+                          },
+                          "speaker": {
+                            "type": "string",
+                            "enum": ["client"]
+                          }
+                        },
+                        "required": ["quote", "speaker"]
+                      }
+                    },
+                    "required": ["comment", "evidence"]
+                  }
+                },
+                "scope": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "comment": {
+                        "type": "string"
+                      },
+                      "evidence": {
+                        "type": "object",
+                        "properties": {
+                          "quote": {
+                            "type": "string"
+                          },
+                          "speaker": {
+                            "type": "string",
+                            "enum": ["client"]
+                          }
+                        },
+                        "required": ["quote", "speaker"]
+                      }
+                    },
+                    "required": ["comment", "evidence"]
+                  }
+                },
+                "timelines": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "comment": {
+                        "type": "string"
+                      },
+                      "evidence": {
+                        "type": "object",
+                        "properties": {
+                          "quote": {
+                            "type": "string"
+                          },
+                          "speaker": {
+                            "type": "string",
+                            "enum": ["client"]
+                          }
+                        },
+                        "required": ["quote", "speaker"]
+                      }
+                    },
+                    "required": ["comment", "evidence"]
+                  }
+                },
+                "functionality_and_integrations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "comment": {
+                        "type": "string"
+                      },
+                      "evidence": {
+                        "type": "object",
+                        "properties": {
+                          "quote": {
+                            "type": "string"
+                          },
+                          "speaker": {
+                            "type": "string",
+                            "enum": ["client", "our_team", "unknown"]
+                          }
+                        },
+                        "required": ["quote", "speaker"]
+                      }
+                    },
+                    "required": ["comment", "evidence"]
+                  }
+                },
+                "format_and_payment": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "comment": {
+                        "type": "string"
+                      },
+                      "evidence": {
+                        "type": "object",
+                        "properties": {
+                          "quote": {
+                            "type": "string"
+                          },
+                          "speaker": {
+                            "type": "string",
+                            "enum": ["client", "our_team", "unknown"]
+                          }
+                        },
+                        "required": ["quote", "speaker"]
+                      }
+                    },
+                    "required": ["comment", "evidence"]
+                  }
+                },
+                "requested_changes_to_proposal": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "change": {
+                        "type": "string"
+                      },
+                      "evidence": {
+                        "type": "object",
+                        "properties": {
+                          "quote": {
+                            "type": "string"
+                          },
+                          "speaker": {
+                            "type": "string",
+                            "enum": ["client"]
+                          }
+                        },
+                        "required": ["quote", "speaker"]
+                      }
+                    },
+                    "required": ["change", "evidence"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "client_decision_and_position": {
+          "type": "object",
+          "properties": {
+            "stance": {
+              "type": "string"
+            },
+            "interest_level": {
+              "type": ["string", "null"],
+              "enum": ["high", "medium", "low", null]
+            },
+            "budget_attitude": {
+              "type": "string"
+            },
+            "budget_range": {
+              "type": "string"
+            },
+            "decision_maker": {
+              "type": "string"
+            },
+            "next_feedback_date": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "object",
+              "properties": {
+                "quote": {
+                  "type": "string"
+                },
+                "speaker": {
+                  "type": "string",
+                  "enum": ["client", "unknown"]
+                }
+              },
+              "required": ["quote", "speaker"]
+            }
+          }
+        },
+        "next_steps": {
+          "type": "object",
+          "properties": {
+            "manager_actions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "client_actions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "model_recommendations_for_manager": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "risk_assessment": {
+          "type": "object",
+          "properties": {
+            "deal_probability": {
+              "type": "string"
+            },
+            "risks": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "sales_manager_assessment": {
+          "type": "object",
+          "properties": {
+            "score_0_10": {
+              "type": ["number", "null"]
+            },
+            "strengths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "improvements": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "properties": {
+        "missing_data_items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": ["missing_data_items", "notes"]
+    },
+    "meeting_summary_for_context": {
+      "type": "string"
+    }
+  },
+  "required": ["artifacts", "quality"]
+}

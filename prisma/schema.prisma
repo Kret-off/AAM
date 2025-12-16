@@ -1,0 +1,328 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum ParticipantType {
+  internal
+  external
+}
+
+enum MeetingStatus {
+  Uploaded
+  Transcribing
+  LLM_Processing
+  Ready
+  Validated
+  Rejected
+  Failed_Transcription
+  Failed_LLM
+  Failed_System
+}
+
+enum ValidationDecision {
+  accepted
+  rejected
+}
+
+model User {
+  id           String    @id
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String
+  role         UserRole  @default(USER)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastLoginAt  DateTime? @map("last_login_at")
+  isActive     Boolean   @default(true) @map("is_active")
+
+  // Relations
+  createdClients        Client[]               @relation("ClientCreator")
+  ownedMeetings         Meeting[]              @relation("MeetingOwner")
+  viewerMeetings        MeetingViewer[]        @relation("ViewerUser")
+  addedViewers          MeetingViewer[]        @relation("ViewerAdder")
+  createdParticipants   DirectoryParticipant[] @relation("ParticipantCreator")
+  updatedScenarios      PromptScenario[]       @relation("ScenarioUpdater")
+  validations           Validation[]
+  availableMeetingTypes UserMeetingType[]
+
+  @@map("user")
+}
+
+model Client {
+  id                     String   @id
+  name                   String
+  clientContextSummaryMd String?  @map("client_context_summary_md") @db.Text
+  createdAt              DateTime @default(now()) @map("created_at")
+  createdByUserId        String   @map("created_by_user_id")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  createdByUser User      @relation("ClientCreator", fields: [createdByUserId], references: [id])
+  meetings      Meeting[]
+
+  @@map("client")
+}
+
+model MeetingType {
+  id       String  @id
+  name     String // First, Follow-up, CP Presentation
+  isActive Boolean @default(true) @map("is_active")
+
+  // Relations
+  scenarios      Meeting[]
+  meetings       PromptScenario[]
+  availableUsers UserMeetingType[]
+
+  @@map("meeting_type")
+}
+
+model PromptScenario {
+  id              String   @id
+  meetingTypeId   String   @map("meeting_type_id")
+  name            String
+  systemPrompt    String   @map("system_prompt") @db.Text
+  outputSchema    Json     @map("output_schema")
+  artifactsConfig Json     @map("artifacts_config")
+  keyterms        String[] @default([]) @map("keyterms")
+  isActive        Boolean  @default(true) @map("is_active")
+  version         Int      @default(1)
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  updatedByUserId String   @map("updated_by_user_id")
+
+  // Relations
+  meetingType   MeetingType @relation(fields: [meetingTypeId], references: [id])
+  updatedByUser User        @relation("ScenarioUpdater", fields: [updatedByUserId], references: [id])
+  meetings      Meeting[]
+
+  @@map("prompt_scenario")
+}
+
+model DirectoryParticipant {
+  id              String          @id
+  type            ParticipantType
+  fullName        String          @map("full_name")
+  roleTitle       String?         @map("role_title")
+  companyName     String?         @map("company_name")
+  department      String?
+  tags            Json?
+  isActive        Boolean         @default(true) @map("is_active")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  createdByUserId String          @map("created_by_user_id")
+
+  // Relations
+  createdByUser       User                 @relation("ParticipantCreator", fields: [createdByUserId], references: [id])
+  meetingParticipants MeetingParticipant[]
+
+  @@map("directory_participant")
+}
+
+model Meeting {
+  id              String        @id
+  clientId        String        @map("client_id")
+  ownerUserId     String        @map("owner_user_id")
+  meetingTypeId   String        @map("meeting_type_id")
+  scenarioId      String        @map("scenario_id")
+  title           String?
+  status          MeetingStatus @default(Uploaded)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  validatedAt     DateTime?     @map("validated_at")
+  autoRetryCount  Int           @default(0) @map("auto_retry_count")
+  lastAutoRetryAt DateTime?     @map("last_auto_retry_at")
+  nextAutoRetryAt DateTime?     @map("next_auto_retry_at")
+
+  // Relations
+  client           Client               @relation(fields: [clientId], references: [id])
+  owner            User                 @relation("MeetingOwner", fields: [ownerUserId], references: [id])
+  meetingType      MeetingType          @relation(fields: [meetingTypeId], references: [id])
+  scenario         PromptScenario       @relation(fields: [scenarioId], references: [id])
+  participants     MeetingParticipant[]
+  viewers          MeetingViewer[]
+  uploadBlob       UploadBlob?
+  transcript       Transcript?
+  artifacts        Artifacts?
+  validation       Validation?
+  processingErrors ProcessingError[]
+  llmInteractions  LLMInteraction[]
+
+  @@map("meeting")
+}
+
+model MeetingParticipant {
+  meetingId           String   @map("meeting_id")
+  participantId       String   @map("participant_id")
+  snapshotFullName    String   @map("snapshot_full_name")
+  snapshotRoleTitle   String?  @map("snapshot_role_title")
+  snapshotCompanyName String?  @map("snapshot_company_name")
+  snapshotDepartment  String?  @map("snapshot_department")
+  addedAt             DateTime @default(now()) @map("added_at")
+
+  // Relations
+  meeting     Meeting              @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  participant DirectoryParticipant @relation(fields: [participantId], references: [id])
+
+  @@id([meetingId, participantId])
+  @@map("meeting_participant")
+}
+
+model MeetingViewer {
+  meetingId     String   @map("meeting_id")
+  userId        String   @map("user_id")
+  addedAt       DateTime @default(now()) @map("added_at")
+  addedByUserId String   @map("added_by_user_id")
+
+  // Relations
+  meeting     Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user        User    @relation("ViewerUser", fields: [userId], references: [id])
+  addedByUser User    @relation("ViewerAdder", fields: [addedByUserId], references: [id])
+
+  @@id([meetingId, userId])
+  @@map("meeting_viewer")
+}
+
+model UploadBlob {
+  id               String    @id
+  meetingId        String    @unique @map("meeting_id")
+  originalFilename String    @map("original_filename")
+  mimeType         String    @map("mime_type")
+  sizeBytes        BigInt    @map("size_bytes")
+  storagePath      String    @map("storage_path")
+  expiresAt        DateTime? @map("expires_at")
+  deletedAt        DateTime? @map("deleted_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("upload_blob")
+}
+
+model Transcript {
+  id             String   @id
+  meetingId      String   @unique @map("meeting_id")
+  transcriptText String   @map("transcript_text") @db.Text
+  segments       Json
+  keyterms       Json
+  language       String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("transcript")
+}
+
+model Artifacts {
+  id               String   @id
+  meetingId        String   @unique @map("meeting_id")
+  artifactsPayload Json     @map("artifacts_payload")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // Relations
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("artifacts")
+}
+
+model Validation {
+  id                String             @id
+  meetingId         String             @unique @map("meeting_id")
+  validatedByUserId String             @map("validated_by_user_id")
+  decision          ValidationDecision
+  rejectionReason   String?            @map("rejection_reason") @db.Text
+  validatedAt       DateTime           @default(now()) @map("validated_at")
+
+  // Relations
+  meeting         Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  validatedByUser User    @relation(fields: [validatedByUserId], references: [id])
+
+  @@map("validation")
+}
+
+model ProcessingError {
+  id           String   @id
+  meetingId    String   @map("meeting_id")
+  stage        String // 'transcription', 'llm', 'system'
+  errorCode    String   @map("error_code")
+  errorMessage String   @map("error_message") @db.Text
+  errorDetails Json?    @map("error_details")
+  occurredAt   DateTime @default(now()) @map("occurred_at")
+  isRead       Boolean  @default(false) @map("is_read")
+
+  // Relations
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("processing_error")
+}
+
+model LLMInteraction {
+  id        String @id
+  meetingId String @map("meeting_id")
+
+  // Попытка (attempt) - для отслеживания множественных попыток
+  attemptNumber   Int     @default(1) @map("attempt_number")
+  isRepairAttempt Boolean @default(false) @map("is_repair_attempt")
+
+  // Запрос к LLM
+  systemPrompt String @map("system_prompt") @db.Text
+  userPrompt   String @map("user_prompt") @db.Text
+  model        String @default("gpt-5.1")
+  temperature  Float  @default(0.3)
+  maxTokens    Int    @default(8000) @map("max_tokens")
+
+  // Ответ от LLM
+  rawResponse   String? @map("raw_response") @db.Text // Полный ответ до парсинга
+  extractedJson Json?   @map("extracted_json") // Извлеченный JSON (если удалось)
+
+  // Метаданные запроса
+  requestMetadata Json? @map("request_metadata") // Дополнительные данные (outputSchema, meetingMetadata и т.д.)
+
+  // Результат обработки
+  isValid          Boolean? @map("is_valid") // null = еще не проверено, true/false = результат валидации
+  validationErrors Json?    @map("validation_errors") // Ошибки валидации, если есть
+  isFinal          Boolean  @default(false) @map("is_final") // true = это финальный успешный ответ
+
+  // Метаданные ответа от OpenAI API
+  apiResponseMetadata Json? @map("api_response_metadata") // usage, finish_reason, model и т.д.
+
+  // Ошибки (если были)
+  errorCode    String? @map("error_code")
+  errorMessage String? @map("error_message") @db.Text
+  errorDetails Json?   @map("error_details")
+
+  // Временные метки
+  requestedAt DateTime  @default(now()) @map("requested_at")
+  respondedAt DateTime? @map("responded_at")
+  processedAt DateTime? @map("processed_at")
+
+  // Relations
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+  @@index([meetingId, attemptNumber])
+  @@index([isFinal])
+  @@map("llm_interaction")
+}
+
+model UserMeetingType {
+  userId        String @map("user_id")
+  meetingTypeId String @map("meeting_type_id")
+
+  // Relations
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meetingType MeetingType @relation(fields: [meetingTypeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, meetingTypeId])
+  @@map("user_meeting_type")
+}

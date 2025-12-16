@@ -1,0 +1,40 @@
+---
+description: AAM v1 guardrails: scope, stack, and non-negotiable domain rules
+globs: "**/*"
+alwaysApply: true
+---
+
+# AAM Guardrails (v1)
+
+You are implementing the internal web app "Assist after meeting (AAM)".
+Follow the approved v1 scope. Do NOT add features outside scope unless explicitly asked.
+
+## v1 scope (non-negotiable)
+- Auth: email+password; hash with argon2/bcrypt; secure httpOnly cookies
+- Meeting: Client + Meeting Type + Scenario + Participants + optional title + Upload <= 1.2GB
+- Async pipeline: STT -> LLM -> Artifacts -> Ready
+- Validation: Accept / Reject (NO manual editing in v1)
+- UploadBlob deletion: delete immediately after success; on failure delete via TTL 24h
+- Client Context Summary (Markdown): updated only on Accept; no version history in v1
+- Sharing/transfer: owner can add/remove viewers and transfer ownership; validate is always by current owner
+- Admin: manage users + meeting types + scenarios (prompts, output_schema, artifacts_config)
+
+## Stack constraints
+- Next.js (TypeScript) UI + API routes
+- PostgreSQL
+- Redis + BullMQ for jobs
+- S3-compatible storage (MinIO) for temporary uploads
+- Docker Compose for dev
+
+## Out of scope (do not implement unless asked)
+- Docx/pdf export
+- Bitrix24 integration
+- Auto-detect meeting type
+- Re-run processing button
+- Audit logs, granular permissioning beyond owner/viewer/admin
+
+## Output contract
+- LLM MUST return STRICT JSON validated by scenario.output_schema
+- UI MUST be universal based on artifacts wrapper
+
+When unsure: choose the simplest implementation that passes acceptance criteria.

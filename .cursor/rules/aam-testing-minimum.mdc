@@ -1,0 +1,17 @@
+---
+description: Minimal testing rules for AAM critical paths
+globs: "**/*"
+alwaysApply: true
+---
+
+# AAM Minimal Tests
+
+When changing pipeline/rbac/upload/status logic:
+- Add/Update at least one test covering the relevant status transition or permission rule.
+
+Critical cases that must stay covered:
+- Only owner can Accept/Reject
+- Transfer ownership switches validator to new owner
+- UploadBlob deletion: immediate on success, TTL on failure
+- LLM schema invalid => repair once => then Failed_LLM if still invalid
+- Idempotent jobs: re-run does not duplicate transcript/artifacts

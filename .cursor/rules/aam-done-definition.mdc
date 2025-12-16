@@ -1,0 +1,14 @@
+---
+description: Definition of Done for AAM tasks to prevent half-implemented changes
+globs: "**/*"
+alwaysApply: true
+---
+
+# AAM Definition of Done (per task)
+
+A task is DONE only when:
+- Code compiles/lints
+- RBAC checked (if endpoint touches meetings)
+- Status transitions are correct (if pipeline touched)
+- Cleanup rule respected (UploadBlob immediate delete on success, TTL on failure)
+- memory-bank updated if architecture/db/api changed

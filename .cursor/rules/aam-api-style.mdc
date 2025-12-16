@@ -1,0 +1,23 @@
+---
+description: AAM API style: DTOs, error format, auth checks, and transactions
+globs: "**/*"
+alwaysApply: true
+---
+
+# AAM API Style
+
+## DTOs
+- All endpoints use explicit request/response DTO types.
+- Do NOT leak DB models directly to client.
+
+## Error format
+Return:
+{ "error": { "code": "SOME_CODE", "message": "Human readable", "details": {} } }
+
+## Auth
+- Every meeting-related handler MUST enforce RBAC at the top.
+- Validate actions only by owner.
+
+## Transactions
+- Status transitions + DB writes for a stage must be atomic (transaction).
+- Never leave meeting in intermediate state if stage output is persisted.

@@ -1,0 +1,20 @@
+---
+description: AAM access control rules (owner/viewer/admin) with strict validation permissions
+globs: "**/*"
+alwaysApply: true
+---
+
+# AAM RBAC
+
+## Meeting access
+- Read: owner + viewers + Admin
+- Validate Accept/Reject: ONLY current owner
+- Share/Revoke/Transfer: ONLY current owner
+
+## Transfer ownership
+- After transfer, ONLY new owner can validate.
+- Keep viewers unless explicitly changed.
+
+## Admin access
+- Admin can manage users, meeting types, scenarios.
+- Admin is NOT implicitly owner of meetings.
