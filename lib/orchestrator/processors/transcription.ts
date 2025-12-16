@@ -10,6 +10,10 @@ import { updateMeetingStatus } from '../../meeting/service';
 import { downloadFileFromS3 } from '../s3-utils';
 import { ORCHESTRATOR_ERROR_CODES, ORCHESTRATOR_ERROR_MESSAGES } from '../constants';
 import { scheduleAutoRetry } from '../auto-retry-utils';
+import { createModuleLogger } from '../../logger';
+import { saveProcessingError } from '../error-handler';
+
+const logger = createModuleLogger('Orchestrator:Transcription');
 
 export interface TranscriptionResult {
   success: boolean;
@@ -18,35 +22,6 @@ export interface TranscriptionResult {
     message: string;
     details?: Record<string, unknown>;
   };
-}
-
-/**
- * Save processing error to database
- */
-async function saveProcessingError(
-  meetingId: string,
-  stage: 'transcription' | 'llm' | 'system',
-  errorCode: string,
-  errorMessage: string,
-  errorDetails?: Record<string, unknown>
-): Promise<void> {
-  try {
-    const { generateShortId } = await import('../../db/id-generator');
-    const errorId = await generateShortId('processing_error');
-    await prisma.processingError.create({
-      data: {
-        id: errorId,
-        meetingId,
-        stage,
-        errorCode,
-        errorMessage,
-        errorDetails: errorDetails || null,
-      },
-    });
-  } catch (error) {
-    // Log but don't throw - error saving should not block status update
-    console.error(`[Transcription] Failed to save processing error:`, error);
-  }
 }
 
 /**
@@ -123,9 +98,9 @@ export async function processTranscription(meetingId: string): Promise<Transcrip
     // Download file from S3 as Buffer
     let fileBuffer: Buffer;
     try {
-      console.log(`[Transcription] Downloading file from S3 for meeting ${meetingId}`);
+      logger.debug(`Downloading file from S3 for meeting ${meetingId}`);
       fileBuffer = await downloadFileFromS3(meeting.uploadBlob.storagePath);
-      console.log(`[Transcription] File downloaded successfully, size: ${fileBuffer.length} bytes`);
+      logger.debug(`File downloaded successfully`, { meetingId, size: fileBuffer.length });
     } catch (error) {
       // Save error before updating status
       const errorDetails = {
@@ -160,9 +135,9 @@ export async function processTranscription(meetingId: string): Promise<Transcrip
     const keyterms = meeting.scenario?.keyterms || [];
 
     // Call Deepgram transcription with file buffer
-    console.log(`[Transcription] Calling Deepgram API for meeting ${meetingId}`);
+    logger.info(`Calling Deepgram API for meeting ${meetingId}`);
     if (keyterms.length > 0) {
-      console.log(`[Transcription] Using ${keyterms.length} keyterms for improved transcription`);
+      logger.debug(`Using ${keyterms.length} keyterms for improved transcription`);
     }
     const transcriptionResult = await transcribe({
       fileBuffer,
@@ -171,9 +146,8 @@ export async function processTranscription(meetingId: string): Promise<Transcrip
     });
 
     if ('error' in transcriptionResult) {
-      console.error(`[Transcription] Deepgram transcription failed for meeting ${meetingId}:`, {
+      logger.error(`Deepgram transcription failed for meeting ${meetingId}`, transcriptionResult.error, {
         code: transcriptionResult.error.code,
-        message: transcriptionResult.error.message,
         details: transcriptionResult.error.details,
       });
       
@@ -202,12 +176,13 @@ export async function processTranscription(meetingId: string): Promise<Transcrip
       };
     }
 
-    console.log(`[Transcription] Deepgram transcription successful for meeting ${meetingId}`);
-    console.log(`[Transcription] Transcript length: ${transcriptionResult.data.transcriptText.length} characters`);
-    console.log(`[Transcription] Segments: ${transcriptionResult.data.segments.length}`);
+    logger.info(`Deepgram transcription successful for meeting ${meetingId}`, {
+      transcriptLength: transcriptionResult.data.transcriptText.length,
+      segmentsCount: transcriptionResult.data.segments.length,
+    });
 
     // Save transcript to database
-    console.log(`[Transcription] Saving transcript to database for meeting ${meetingId}`);
+    logger.debug(`Saving transcript to database for meeting ${meetingId}`);
     try {
       const { generateShortId } = await import('../../db/id-generator');
       const transcriptId = await generateShortId('transcript');
@@ -221,12 +196,10 @@ export async function processTranscription(meetingId: string): Promise<Transcrip
           language: transcriptionResult.data.language,
         },
       });
-      console.log(`[Transcription] Transcript saved successfully for meeting ${meetingId}`);
+      logger.info(`Transcript saved successfully for meeting ${meetingId}`);
     } catch (dbError: any) {
-      console.error(`[Transcription] Failed to save transcript to database:`, {
-        message: dbError.message,
+      logger.error(`Failed to save transcript to database`, dbError, {
         code: dbError.code,
-        details: dbError,
       });
       throw dbError;
     }
@@ -245,12 +218,7 @@ export async function processTranscription(meetingId: string): Promise<Transcrip
 
     return { success: true };
   } catch (error) {
-    console.error(`[Transcription] Unexpected error processing transcription for meeting ${meetingId}:`, {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      name: error instanceof Error ? error.name : 'Unknown',
-      fullError: error,
-    });
+    logger.error(`Unexpected error processing transcription for meeting ${meetingId}`, error);
     
     // Save error before updating status
     const errorDetails = {
@@ -268,12 +236,12 @@ export async function processTranscription(meetingId: string): Promise<Transcrip
     
     // Update status to Failed_Transcription on unexpected error
     await updateMeetingStatus(meetingId, 'Failed_Transcription').catch((statusError) => {
-      console.error(`[Transcription] Failed to update status to Failed_Transcription:`, statusError);
+      logger.error(`Failed to update status to Failed_Transcription`, statusError);
     });
     
     // Schedule automatic retry if applicable
     await scheduleAutoRetry(meetingId).catch((retryError) => {
-      console.error(`[Transcription] Failed to schedule auto retry:`, retryError);
+      logger.error(`Failed to schedule auto retry`, retryError);
     });
 
     return {

@@ -152,29 +152,15 @@ export async function GET(
       );
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/meetings/[meetingId]/events/route.ts:155',message:'SSE route ENTRY',data:{meetingId,userId:user.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
-
     // Create SSE stream
     const stream = new ReadableStream({
       async start(controller) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/meetings/[meetingId]/events/route.ts:157',message:'SSE stream start',data:{meetingId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         const encoder = new TextEncoder();
         const channel = `meeting:${meetingId}:status`;
 
         // Send initial connection message
         const initialMessage = `event: connected\ndata: ${JSON.stringify({ meetingId, timestamp: new Date().toISOString() })}\n\n`;
         controller.enqueue(encoder.encode(initialMessage));
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/meetings/[meetingId]/events/route.ts:163',message:'Initial connection message sent',data:{meetingId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
-
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/meetings/[meetingId]/events/route.ts:166',message:'BEFORE Redis subscriber creation',data:{meetingId,channel,redisUrl:process.env.REDIS_URL || 'redis://localhost:6379'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
 
         // Subscribe to Redis channel (use separate connection for pub/sub)
         const subscriber = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
@@ -197,9 +183,6 @@ export async function GET(
         };
 
         subscriber.on('message', (ch, message) => {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/meetings/[meetingId]/events/route.ts:199',message:'Redis message received',data:{meetingId,channel:ch,expectedChannel:channel,isClosed,messageLength:message.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
           if (ch === channel && !isClosed) {
             try {
               const eventData = JSON.parse(message);
@@ -208,15 +191,9 @@ export async function GET(
               // Check if controller is still open before enqueueing
               try {
                 controller.enqueue(encoder.encode(sseMessage));
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/meetings/[meetingId]/events/route.ts:210',message:'SSE message sent to client',data:{meetingId,eventStatus:eventData.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-                // #endregion
               } catch (enqueueError: any) {
                 // Controller is closed, mark as closed and stop processing
                 if (enqueueError?.message?.includes('closed') || enqueueError?.message?.includes('Controller')) {
-                  // #region agent log
-                  fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/meetings/[meetingId]/events/route.ts:216',message:'Controller closed during enqueue, cleaning up',data:{meetingId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-                  // #endregion
                   isClosed = true;
                   cleanup();
                   return;
@@ -224,9 +201,6 @@ export async function GET(
                 throw enqueueError;
               }
             } catch (error) {
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/meetings/[meetingId]/events/route.ts:225',message:'Error parsing event message',data:{meetingId,error:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-              // #endregion
               console.error('[SSE] Error parsing event message:', error);
             }
           }
@@ -241,18 +215,9 @@ export async function GET(
         });
 
         try {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/meetings/[meetingId]/events/route.ts:205',message:'BEFORE subscriber.subscribe',data:{meetingId,channel},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-          // #endregion
           await subscriber.subscribe(channel);
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/meetings/[meetingId]/events/route.ts:207',message:'AFTER subscriber.subscribe SUCCESS',data:{meetingId,channel},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-          // #endregion
           console.log(`[SSE] Subscribed to channel: ${channel} for meeting ${meetingId}`);
         } catch (error) {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/meetings/[meetingId]/events/route.ts:209',message:'subscriber.subscribe ERROR',data:{meetingId,channel,error:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-          // #endregion
           console.error(`[SSE] Failed to subscribe to channel ${channel}:`, error);
           await cleanup();
           return;
@@ -261,9 +226,6 @@ export async function GET(
         // Handle client disconnect
         if (request.signal) {
           request.signal.addEventListener('abort', () => {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/meetings/[meetingId]/events/route.ts:260',message:'Client abort signal received',data:{meetingId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-            // #endregion
             console.log(`[SSE] Client disconnected from meeting ${meetingId}`);
             cleanup();
           });
@@ -271,9 +233,6 @@ export async function GET(
 
         // Also handle stream cancellation
         const cancelHandler = () => {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/meetings/[meetingId]/events/route.ts:268',message:'Stream cancel handler called',data:{meetingId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-          // #endregion
           console.log(`[SSE] Stream cancelled for meeting ${meetingId}`);
           cleanup();
         };

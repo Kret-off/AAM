@@ -14,6 +14,9 @@ import { deleteUploadBlob } from './cleanup';
 import { updateMeetingStatus } from '../meeting/service';
 import { ORCHESTRATOR_CONSTANTS, ORCHESTRATOR_ERROR_CODES } from './constants';
 import { scheduleAutoRetry } from './auto-retry-utils';
+import { createModuleLogger } from '../logger';
+
+const logger = createModuleLogger('Orchestrator:Worker');
 
 let redisConnection: Redis | undefined;
 let processingWorker: Worker | undefined;
@@ -38,34 +41,34 @@ async function processMeetingJob(job: Job<{ meetingId: string }>): Promise<void>
   const { meetingId } = job.data;
   let lockKey: string | null = null;
 
-  console.log(`[Worker] Starting job processing for meeting ${meetingId}`);
+  logger.info(`Starting job processing for meeting ${meetingId}`);
 
   try {
     // First, verify meeting exists before acquiring lock
     // This prevents LOCK_ACQUISITION_FAILED errors for non-existent meetings
-    console.log(`[Worker] Verifying meeting exists: ${meetingId}`);
+    logger.debug(`Verifying meeting exists: ${meetingId}`);
     const meetingExists = await prisma.meeting.findUnique({
       where: { id: meetingId },
       select: { id: true },
     });
 
     if (!meetingExists) {
-      console.error(`[Worker] Meeting not found: ${meetingId}`);
+      logger.error(`Meeting not found: ${meetingId}`);
       throw new Error(ORCHESTRATOR_ERROR_CODES.MEETING_NOT_FOUND);
     }
 
     // Acquire lock for meeting processing
-    console.log(`[Worker] Acquiring lock for meeting ${meetingId}`);
+    logger.debug(`Acquiring lock for meeting ${meetingId}`);
     const lockResult = await acquireLockWithRetries(meetingId);
     if (!lockResult.acquired) {
-      console.error(`[Worker] Failed to acquire lock for meeting ${meetingId}`);
+      logger.error(`Failed to acquire lock for meeting ${meetingId}`);
       throw new Error(ORCHESTRATOR_ERROR_CODES.LOCK_ACQUISITION_FAILED);
     }
     lockKey = lockResult.lockKey;
-    console.log(`[Worker] Lock acquired for meeting ${meetingId}`);
+    logger.debug(`Lock acquired for meeting ${meetingId}`);
 
     // Get meeting to check current status
-    console.log(`[Worker] Fetching meeting data for ${meetingId}`);
+    logger.debug(`Fetching meeting data for ${meetingId}`);
     const meeting = await prisma.meeting.findUnique({
       where: { id: meetingId },
       select: {
@@ -92,19 +95,18 @@ async function processMeetingJob(job: Job<{ meetingId: string }>): Promise<void>
       }, 60000); // Extend every minute
 
       try {
-        console.log(`[Worker] Processing transcription for meeting ${meetingId}`);
+        logger.info(`Processing transcription for meeting ${meetingId}`);
         const transcriptionResult = await processTranscription(meetingId);
         if (!transcriptionResult.success) {
-          console.error(`[Worker] Transcription failed for meeting ${meetingId}:`, {
+          logger.error(`Transcription failed for meeting ${meetingId}`, transcriptionResult.error, {
             code: transcriptionResult.error?.code,
-            message: transcriptionResult.error?.message,
             details: transcriptionResult.error?.details,
           });
           // Set TTL for UploadBlob on failure
           await deleteUploadBlob(meetingId, false);
           throw new Error(transcriptionResult.error?.message || 'Transcription failed');
         }
-        console.log(`[Worker] Transcription completed successfully for meeting ${meetingId}`);
+        logger.info(`Transcription completed successfully for meeting ${meetingId}`);
         
         // Re-fetch meeting to get updated status after transcription
         const updatedMeeting = await prisma.meeting.findUnique({
@@ -120,11 +122,7 @@ async function processMeetingJob(job: Job<{ meetingId: string }>): Promise<void>
           Object.assign(meeting, updatedMeeting);
         }
       } catch (transcriptionError: any) {
-        console.error(`[Worker] Transcription error for meeting ${meetingId}:`, {
-          message: transcriptionError.message,
-          stack: transcriptionError.stack,
-          name: transcriptionError.name,
-        });
+        logger.error(`Transcription error for meeting ${meetingId}`, transcriptionError);
         throw transcriptionError;
       } finally {
         clearInterval(lockExtender);
@@ -147,7 +145,7 @@ async function processMeetingJob(job: Job<{ meetingId: string }>): Promise<void>
       throw new Error(ORCHESTRATOR_ERROR_CODES.MEETING_NOT_FOUND);
     }
 
-    console.log(`[Worker] Checking LLM processing for meeting ${meetingId}:`, {
+    logger.debug(`Checking LLM processing for meeting ${meetingId}`, {
       status: currentMeeting.status,
       hasTranscript: !!currentMeeting.transcript,
       hasArtifacts: !!currentMeeting.artifacts,
@@ -159,14 +157,13 @@ async function processMeetingJob(job: Job<{ meetingId: string }>): Promise<void>
       // If status is Uploaded but transcript exists, we need to transition through Transcribing first
       // (cannot skip states per pipeline rules)
       if (currentMeeting.status === 'Uploaded') {
-        console.log(`[Worker] Transcript exists but status is Uploaded, transitioning to Transcribing then LLM_Processing for meeting ${meetingId}`);
+        logger.info(`Transcript exists but status is Uploaded, transitioning to Transcribing then LLM_Processing for meeting ${meetingId}`);
         
         // First transition to Transcribing (allowed from Uploaded)
         const transcribingUpdate = await updateMeetingStatus(meetingId, 'Transcribing');
         if ('error' in transcribingUpdate) {
-          console.error(`[Worker] Failed to transition status to Transcribing:`, {
+          logger.error(`Failed to transition status to Transcribing`, transcribingUpdate.error, {
             code: transcribingUpdate.error.code,
-            message: transcribingUpdate.error.message,
           });
           throw new Error(transcribingUpdate.error.message || 'Failed to transition to Transcribing');
         }
@@ -174,9 +171,8 @@ async function processMeetingJob(job: Job<{ meetingId: string }>): Promise<void>
         // Then immediately transition to LLM_Processing (allowed from Transcribing)
         const llmUpdate = await updateMeetingStatus(meetingId, 'LLM_Processing');
         if ('error' in llmUpdate) {
-          console.error(`[Worker] Failed to transition status to LLM_Processing:`, {
+          logger.error(`Failed to transition status to LLM_Processing`, llmUpdate.error, {
             code: llmUpdate.error.code,
-            message: llmUpdate.error.message,
           });
           throw new Error(llmUpdate.error.message || 'Failed to transition to LLM_Processing');
         }
@@ -198,12 +194,11 @@ async function processMeetingJob(job: Job<{ meetingId: string }>): Promise<void>
 
       // If status is Transcribing but transcript exists, transition to LLM_Processing
       if (currentMeeting.status === 'Transcribing') {
-        console.log(`[Worker] Transcript exists but status is Transcribing, transitioning to LLM_Processing for meeting ${meetingId}`);
+        logger.info(`Transcript exists but status is Transcribing, transitioning to LLM_Processing for meeting ${meetingId}`);
         const llmUpdate = await updateMeetingStatus(meetingId, 'LLM_Processing');
         if ('error' in llmUpdate) {
-          console.error(`[Worker] Failed to transition status to LLM_Processing:`, {
+          logger.error(`Failed to transition status to LLM_Processing`, llmUpdate.error, {
             code: llmUpdate.error.code,
-            message: llmUpdate.error.message,
           });
           throw new Error(llmUpdate.error.message || 'Failed to transition to LLM_Processing');
         }
@@ -224,7 +219,7 @@ async function processMeetingJob(job: Job<{ meetingId: string }>): Promise<void>
 
       // Process LLM if status is LLM_Processing
       if (currentMeeting.status === 'LLM_Processing') {
-        console.log(`[Worker] Processing LLM for meeting ${meetingId}`);
+        logger.info(`Processing LLM for meeting ${meetingId}`);
         // Extend lock periodically
         const lockExtender = setInterval(() => {
           if (lockKey) {
@@ -254,7 +249,7 @@ async function processMeetingJob(job: Job<{ meetingId: string }>): Promise<void>
 
     // For meeting not found errors, don't try to update status or cleanup
     if (isMeetingNotFound) {
-      console.error(`[Worker] Meeting not found: ${meetingId}, skipping status update and cleanup`);
+      logger.error(`Meeting not found: ${meetingId}, skipping status update and cleanup`);
       throw error;
     }
 
@@ -289,14 +284,14 @@ async function processMeetingJob(job: Job<{ meetingId: string }>): Promise<void>
           });
         } catch (saveError) {
           // Log but don't throw - error saving should not block status update
-          console.error(`[Worker] Failed to save processing error:`, saveError);
+          logger.error(`Failed to save processing error`, saveError);
         }
         
         await updateMeetingStatus(meetingId, 'Failed_System');
         
         // Schedule automatic retry if applicable
         await scheduleAutoRetry(meetingId).catch((retryError) => {
-          console.error(`[Worker] Failed to schedule auto retry:`, retryError);
+          logger.error(`Failed to schedule auto retry`, retryError);
         });
       }
 
@@ -304,7 +299,7 @@ async function processMeetingJob(job: Job<{ meetingId: string }>): Promise<void>
       await deleteUploadBlob(meetingId, false);
     } catch (cleanupError) {
       // Ignore cleanup errors
-      console.error('Failed to cleanup on error:', cleanupError);
+      logger.error('Failed to cleanup on error', cleanupError);
     }
 
     throw error;
@@ -342,11 +337,11 @@ export function getProcessingWorker(): Worker {
 
     // Error handling
     processingWorker.on('failed', (job, err) => {
-      console.error(`Job ${job?.id} failed:`, err);
+      logger.error(`Job ${job?.id} failed`, err);
     });
 
     processingWorker.on('completed', (job) => {
-      console.log(`Job ${job.id} completed successfully`);
+      logger.info(`Job ${job.id} completed successfully`);
     });
   }
 

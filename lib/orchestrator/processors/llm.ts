@@ -11,6 +11,10 @@ import { getContextSummary } from '../../client-kb/context-summary';
 import { deleteUploadBlob } from '../cleanup';
 import { ORCHESTRATOR_ERROR_CODES, ORCHESTRATOR_ERROR_MESSAGES } from '../constants';
 import { scheduleAutoRetry } from '../auto-retry-utils';
+import { createModuleLogger } from '../../logger';
+import { saveProcessingError } from '../error-handler';
+
+const logger = createModuleLogger('Orchestrator:LLM');
 
 export interface LLMResult {
   success: boolean;
@@ -19,35 +23,6 @@ export interface LLMResult {
     message: string;
     details?: Record<string, unknown>;
   };
-}
-
-/**
- * Save processing error to database
- */
-async function saveProcessingError(
-  meetingId: string,
-  stage: 'transcription' | 'llm' | 'system',
-  errorCode: string,
-  errorMessage: string,
-  errorDetails?: Record<string, unknown>
-): Promise<void> {
-  try {
-    const { generateShortId } = await import('../../db/id-generator');
-    const errorId = await generateShortId('processing_error');
-    await prisma.processingError.create({
-      data: {
-        id: errorId,
-        meetingId,
-        stage,
-        errorCode,
-        errorMessage,
-        errorDetails: errorDetails ? (errorDetails as object) : undefined,
-      },
-    });
-  } catch (error) {
-    // Log but don't throw - error saving should not block status update
-    console.error(`[LLM] Failed to save processing error:`, error);
-  }
 }
 
 /**
@@ -251,7 +226,7 @@ export async function processLLM(meetingId: string): Promise<LLMResult> {
     
     // Schedule automatic retry if applicable
     await scheduleAutoRetry(meetingId).catch((retryError) => {
-      console.error(`[LLM] Failed to schedule auto retry:`, retryError);
+      logger.error(`Failed to schedule auto retry`, retryError);
     });
 
     return {

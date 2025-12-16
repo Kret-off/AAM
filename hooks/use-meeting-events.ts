@@ -128,9 +128,6 @@ export function useMeetingEvents(
 
     // Prevent multiple simultaneous connections
     if (isConnectingRef.current || (eventSourceRef.current && eventSourceRef.current.readyState !== EventSource.CLOSED)) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'hooks/use-meeting-events.ts:111',message:'Connection already exists, skipping',data:{meetingId,readyState:eventSourceRef.current?.readyState},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
       return;
     }
 
@@ -145,16 +142,10 @@ export function useMeetingEvents(
     setStatus('connecting');
 
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'hooks/use-meeting-events.ts:124',message:'BEFORE EventSource creation',data:{meetingId,url:`/api/meetings/${meetingId}/events`},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
       const eventSource = new EventSource(`/api/meetings/${meetingId}/events`);
       eventSourceRef.current = eventSource;
 
       eventSource.onopen = () => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'hooks/use-meeting-events.ts:140',message:'EventSource onopen',data:{meetingId,readyState:eventSource.readyState},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
         isConnectingRef.current = false;
         console.log(`[useMeetingEvents] Connected to meeting ${meetingId}`);
         setStatus('connected');
@@ -163,35 +154,20 @@ export function useMeetingEvents(
       };
 
       eventSource.addEventListener('status', (event: MessageEvent) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'hooks/use-meeting-events.ts:151',message:'EventSource status event received',data:{meetingId,eventType:event.type,dataLength:event.data?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
         try {
           const data: MeetingStatusUpdateEvent = JSON.parse(event.data);
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'hooks/use-meeting-events.ts:154',message:'Status event parsed, calling onStatusUpdate',data:{meetingId,status:data.status,hasCallback:!!onStatusUpdateRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-          // #endregion
           console.log(`[useMeetingEvents] Status update received:`, data);
           onStatusUpdateRef.current?.(data);
         } catch (error) {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'hooks/use-meeting-events.ts:159',message:'Error parsing status event',data:{meetingId,error:error instanceof Error ? error.message : String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-          // #endregion
           console.error('[useMeetingEvents] Error parsing status event:', error);
         }
       });
 
       eventSource.addEventListener('connected', (event: MessageEvent) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'hooks/use-meeting-events.ts:160',message:'EventSource connected event received',data:{meetingId,eventData:event.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
         console.log(`[useMeetingEvents] SSE connection established for meeting ${meetingId}`);
       });
 
       eventSource.onerror = (error) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/9c7ad797-58f6-4b84-8fea-d98c57d9b1b6',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'hooks/use-meeting-events.ts:167',message:'EventSource onerror',data:{meetingId,readyState:eventSource.readyState},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
         isConnectingRef.current = false;
         console.error(`[useMeetingEvents] EventSource error for meeting ${meetingId}:`, error);
         setStatus('error');
