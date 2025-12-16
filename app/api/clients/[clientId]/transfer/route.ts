@@ -12,10 +12,10 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { clientId: string } }
+  { params }: { params: Promise<{ clientId: string }> }
 ) {
   try {
-    const clientId = params.clientId;
+    const { clientId } = await params;
 
     // Get token from cookies
     const cookieHeader = request.headers.get('cookie');
@@ -161,6 +161,7 @@ export async function POST(
     );
   }
 }
+
 
 
 

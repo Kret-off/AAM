@@ -14,9 +14,11 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { meetingTypeId: string } }
+  { params }: { params: Promise<{ meetingTypeId: string }> }
 ) {
   try {
+    const { meetingTypeId } = await params;
+    
     // Get token from cookies
     const cookieHeader = request.headers.get('cookie');
     const token = getTokenFromRequest(cookieHeader);
@@ -93,8 +95,6 @@ export async function GET(
         { status: 403 }
       );
     }
-
-    const meetingTypeId = params.meetingTypeId;
 
     // Call service
     const result = await getMeetingTypeById(meetingTypeId);
@@ -138,9 +138,11 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { meetingTypeId: string } }
+  { params }: { params: Promise<{ meetingTypeId: string }> }
 ) {
   try {
+    const { meetingTypeId } = await params;
+    
     // Get token from cookies
     const cookieHeader = request.headers.get('cookie');
     const token = getTokenFromRequest(cookieHeader);
@@ -217,8 +219,6 @@ export async function PATCH(
         { status: 403 }
       );
     }
-
-    const meetingTypeId = params.meetingTypeId;
 
     // Parse request body
     const body = await request.json();
@@ -289,13 +289,11 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ meetingTypeId: string }> | { meetingTypeId: string } }
+  { params }: { params: Promise<{ meetingTypeId: string }> }
 ) {
   try {
-    // Handle both Promise and direct params (Next.js version compatibility)
-    const resolvedParams = params instanceof Promise ? await params : params;
-    const meetingTypeId = resolvedParams.meetingTypeId;
-
+    const { meetingTypeId } = await params;
+    
     // Get token from cookies
     const cookieHeader = request.headers.get('cookie');
     const token = getTokenFromRequest(cookieHeader);

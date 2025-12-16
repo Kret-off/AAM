@@ -9,10 +9,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { participantId: string } }
+  { params }: { params: Promise<{ participantId: string }> }
 ) {
   try {
-    const participantId = params.participantId;
+    const { participantId } = await params;
     // TODO: Implement get participant logic
     return NextResponse.json(
       {
@@ -39,10 +39,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { participantId: string } }
+  { params }: { params: Promise<{ participantId: string }> }
 ) {
   try {
-    const participantId = params.participantId;
+    const { participantId } = await params;
     // TODO: Implement update participant logic
     return NextResponse.json(
       {
@@ -69,10 +69,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { participantId: string } }
+  { params }: { params: Promise<{ participantId: string }> }
 ) {
   try {
-    const participantId = params.participantId;
+    const { participantId } = await params;
     // TODO: Implement delete participant logic
     return NextResponse.json(
       {

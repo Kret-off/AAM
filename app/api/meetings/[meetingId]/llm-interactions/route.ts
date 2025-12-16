@@ -12,10 +12,10 @@ import { getLLMInteractions } from '@/lib/llm-interaction';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { meetingId: string } }
+  { params }: { params: Promise<{ meetingId: string }> }
 ) {
   try {
-    const meetingId = params.meetingId;
+    const { meetingId } = await params;
 
     // Get token from cookies
     const cookieHeader = request.headers.get('cookie');

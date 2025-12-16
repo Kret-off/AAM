@@ -13,10 +13,10 @@ import { validateMeetingId } from '@/lib/meeting/validation';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { meetingId: string } }
+  { params }: { params: Promise<{ meetingId: string }> }
 ) {
   try {
-    const meetingId = params.meetingId;
+    const { meetingId } = await params;
 
     // Validate meeting ID format
     const idValidation = validateMeetingId(meetingId);

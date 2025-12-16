@@ -14,10 +14,10 @@ import { validateScenarioId } from '@/lib/scenario/validation';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { scenarioId: string } }
+  { params }: { params: Promise<{ scenarioId: string }> }
 ) {
   try {
-    const scenarioId = params.scenarioId;
+    const { scenarioId } = await params;
 
     // Validate scenario ID format
     const idValidation = validateScenarioId(scenarioId);
@@ -151,9 +151,11 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { scenarioId: string } }
+  { params }: { params: Promise<{ scenarioId: string }> }
 ) {
   try {
+    const { scenarioId } = await params;
+    
     // Get token from cookies
     const cookieHeader = request.headers.get('cookie');
     const token = getTokenFromRequest(cookieHeader);
@@ -230,8 +232,6 @@ export async function PATCH(
         { status: 403 }
       );
     }
-
-    const scenarioId = params.scenarioId;
 
     // Validate scenario ID format
     const idValidation = validateScenarioId(scenarioId);
@@ -325,9 +325,11 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { scenarioId: string } }
+  { params }: { params: Promise<{ scenarioId: string }> }
 ) {
   try {
+    const { scenarioId } = await params;
+    
     // Get token from cookies
     const cookieHeader = request.headers.get('cookie');
     const token = getTokenFromRequest(cookieHeader);
@@ -404,8 +406,6 @@ export async function DELETE(
         { status: 403 }
       );
     }
-
-    const scenarioId = params.scenarioId;
 
     // Validate scenario ID format
     const idValidation = validateScenarioId(scenarioId);

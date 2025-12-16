@@ -15,10 +15,10 @@ import { UpdateClientRequest } from '@/lib/client-kb/dto';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { clientId: string } }
+  { params }: { params: Promise<{ clientId: string }> }
 ) {
   try {
-    const clientId = params.clientId;
+    const { clientId } = await params;
 
     // Validate client ID format
     const idValidation = validateClientId(clientId);
@@ -162,10 +162,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { clientId: string } }
+  { params }: { params: Promise<{ clientId: string }> }
 ) {
   try {
-    const clientId = params.clientId;
+    const { clientId } = await params;
 
     // Validate client ID format
     const idValidation = validateClientId(clientId);

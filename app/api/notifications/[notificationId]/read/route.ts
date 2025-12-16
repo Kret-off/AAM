@@ -10,9 +10,11 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { notificationId: string } }
+  { params }: { params: Promise<{ notificationId: string }> }
 ) {
   try {
+    const { notificationId } = await params;
+    
     // Get token from cookies
     const cookieHeader = request.headers.get('cookie');
     const token = getTokenFromRequest(cookieHeader);
@@ -76,8 +78,6 @@ export async function POST(
         { status: 403 }
       );
     }
-
-    const { notificationId } = params;
 
     // Get the processing error (notification)
     const processingError = await prisma.processingError.findUnique({
